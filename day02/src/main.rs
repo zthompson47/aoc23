@@ -4,12 +4,16 @@ const MAX_BLUE: usize = 14;
 
 fn main() {
     let input = include_str!("input.txt").lines();
-    let mut result = 0;
+    let mut result_1 = 0;
+    let mut result_2 = 0;
 
     for (i, mut line) in input.enumerate() {
         line = line.split(':').last().unwrap();
 
         let mut game_possible = true;
+        let mut max_red = 0;
+        let mut max_green = 0;
+        let mut max_blue = 0;
 
         line.split(';').for_each(|game| {
             game.split(',').for_each(|color_item| {
@@ -19,9 +23,24 @@ fn main() {
                 let color = color_item.next().unwrap();
 
                 let color_possible = match color {
-                    "red" => num <= MAX_RED,
-                    "green" => num <= MAX_GREEN,
-                    "blue" => num <= MAX_BLUE,
+                    "red" => {
+                        if num > max_red {
+                            max_red = num;
+                        }
+                        num <= MAX_RED
+                    }
+                    "green" => {
+                        if num > max_green {
+                            max_green = num;
+                        }
+                        num <= MAX_GREEN
+                    }
+                    "blue" => {
+                        if num > max_blue {
+                            max_blue = num;
+                        }
+                        num <= MAX_BLUE
+                    }
                     wtf => {
                         println!("wtf: {wtf}");
                         panic!()
@@ -34,10 +53,13 @@ fn main() {
             });
         });
 
+        let power = max_red * max_green * max_blue;
+        result_2 += power;
+
         if game_possible {
-            result += i + 1;
+            result_1 += i + 1;
         }
     }
 
-    println!("{result}");
+    println!("{result_1} {result_2}");
 }
