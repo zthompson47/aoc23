@@ -1,17 +1,6 @@
-use std::{collections::HashMap, ops::Range};
+use std::{collections::HashMap, ops::Range, str::Lines};
 
-fn main() {
-    let mut lines = include_str!("input.txt").lines();
-    let seeds = lines
-        .next()
-        .unwrap()
-        .split(':')
-        .nth(1)
-        .unwrap()
-        .split_ascii_whitespace()
-        .map(|x| x.parse::<usize>().unwrap())
-        .collect::<Vec<usize>>();
-
+fn build_maps(lines: Lines<'static>) -> HashMap<&'static str, Vec<Rule>> {
     let mut maps: HashMap<&'static str, Vec<Rule>> = HashMap::default();
     let mut current_map = None;
 
@@ -43,9 +32,23 @@ fn main() {
         }
     });
 
+    maps
+}
+
+fn part1(mut lines: Lines<'static>) -> usize {
+    let seeds = lines
+        .next()
+        .unwrap()
+        .split(':')
+        .nth(1)
+        .unwrap()
+        .split_ascii_whitespace()
+        .map(|x| x.parse::<usize>().unwrap())
+        .collect::<Vec<usize>>();
+    let maps = build_maps(lines);
     let mut result = Vec::new();
 
-    for seed in seeds {
+    for seed in seeds.clone() {
         let mut cur_val = seed;
         let mut new_val = None;
 
@@ -63,18 +66,50 @@ fn main() {
         result.push(cur_val);
     }
 
-    println!("{}", result.iter().min().unwrap());
+    *result.iter().min().unwrap()
 }
 
-const MAP_ORDER: [&str; 7] = [
-    "seed-to-soil",
-    "soil-to-fertilizer",
-    "fertilizer-to-water",
-    "water-to-light",
-    "light-to-temperature",
-    "temperature-to-humidity",
-    "humidity-to-location",
-];
+fn part2(mut lines: Lines<'static>) -> usize {
+    let seeds = lines
+        .next()
+        .unwrap()
+        .split(':')
+        .nth(1)
+        .unwrap()
+        .split_ascii_whitespace()
+        .map(|x| x.parse::<usize>().unwrap())
+        .collect::<Vec<usize>>();
+    let maps = build_maps(lines);
+    let mut result = Vec::new();
+
+    for seed_range in seeds.chunks(2).map(|r| r[0]..r[0] + r[1]) {
+        println!("{seed_range:?}");
+        let mut cur_range = seed_range.clone();
+        let mut new_range = Range::<usize>::default();
+        for map_name in MAP_ORDER {
+            println!("  {map_name}");
+            for rule in maps.get(map_name).unwrap() {
+                if let Some(result) = rule.eval_range(cur_range.clone()) {
+                    new_range = result;
+                    println!("!! -->>  {new_range:?}");
+                }
+            }
+            cur_range = new_range.clone();
+        }
+        result.push(cur_range);
+    }
+
+    println!("{result:?}");
+
+    result.iter().map(|r| r.start).min().unwrap()
+}
+
+fn main() {
+    let lines = include_str!("input.txt").lines();
+
+    println!("Part 1: {}", part1(lines.clone()));
+    println!("Part 2: {}", part2(lines));
+}
 
 #[derive(Debug)]
 struct Rule {
@@ -90,4 +125,52 @@ impl Rule {
             None
         }
     }
+
+    fn eval_range(&self, input: Range<usize>) -> Option<Range<usize>> {
+        if input.start < self.source_range.end && input.end > self.source_range.start {
+            let source_start = input.start.max(self.source_range.start);
+            let source_end = input.end.min(self.source_range.end);
+            let index = source_start - self.source_range.start;
+            let size = source_end - source_start;
+            let dest_start = self.destination_start + index;
+            let dest_end = dest_start + size;
+
+            println!("    source_range: {:?}", self.source_range);
+            println!("    dest_start: {}", self.destination_start);
+            println!("    ss: {source_start}, se: {source_end}, idx: {index}, sz: {size}\n    ds: {dest_start}, de: {dest_end}");
+
+            Some(dest_start..dest_end)
+        } else {
+            None
+        }
+    }
 }
+
+const MAP_ORDER: [&str; 7] = [
+    "seed-to-soil",
+    "soil-to-fertilizer",
+    "fertilizer-to-water",
+    "water-to-light",
+    "light-to-temperature",
+    "temperature-to-humidity",
+    "humidity-to-location",
+];
+
+/*
+struct RangeMap<T> {
+    inner: Range<T>,
+}
+
+impl<T> RangeMap<T> {
+    fn
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn range_map() {
+    }
+}
+*/
