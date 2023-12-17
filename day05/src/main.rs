@@ -1,38 +1,20 @@
 use std::{collections::HashMap, ops::Range, str::Lines};
 
-fn build_maps(lines: Lines<'static>) -> HashMap<&'static str, Vec<Rule>> {
-    let mut maps: HashMap<&'static str, Vec<Rule>> = HashMap::default();
-    let mut current_map = None;
+const MAP_ORDER: [&str; 7] = [
+    "seed-to-soil",
+    "soil-to-fertilizer",
+    "fertilizer-to-water",
+    "water-to-light",
+    "light-to-temperature",
+    "temperature-to-humidity",
+    "humidity-to-location",
+];
 
-    lines.for_each(|line| {
-        if line.contains("map") {
-            if let Some((map_name, _)) = line.split_once(' ') {
-                current_map = Some(map_name);
-                maps.insert(map_name, Vec::new());
-            }
-        } else if line.is_empty() {
-            current_map = None;
-        }
+fn main() {
+    let lines = include_str!("input.txt").lines();
 
-        if line.starts_with(|x: char| x.is_ascii_digit()) {
-            if let Some(map_name) = current_map {
-                let mut values = line.split(' ').map(|x| x.parse::<usize>());
-
-                let destination_start = values.next().unwrap().unwrap();
-                let source_start = values.next().unwrap().unwrap();
-                let source_end = source_start + values.next().unwrap().unwrap();
-
-                let rule = Rule {
-                    destination_start,
-                    source_range: source_start..source_end,
-                };
-
-                maps.get_mut(map_name).unwrap().push(rule);
-            }
-        }
-    });
-
-    maps
+    println!("Part 1: {}", part1(lines.clone()));
+    println!("Part 2: {}", part2(lines));
 }
 
 fn part1(mut lines: Lines<'static>) -> usize {
@@ -83,32 +65,32 @@ fn part2(mut lines: Lines<'static>) -> usize {
     let mut result = Vec::new();
 
     for seed_range in seeds.chunks(2).map(|r| r[0]..r[0] + r[1]) {
-        println!("{seed_range:?}");
-        let mut cur_range = seed_range.clone();
-        let mut new_range = Range::<usize>::default();
+        //println!("{seed_range:?}");
+        let mut prior_ranges = vec![seed_range.clone()];
+        let mut next_ranges = Vec::new();
+
         for map_name in MAP_ORDER {
-            println!("  {map_name}");
+            //println!("  {map_name}");
             for rule in maps.get(map_name).unwrap() {
-                if let Some(result) = rule.eval_range(cur_range.clone()) {
-                    new_range = result;
-                    println!("!! -->>  {new_range:?}");
+                for prior_range in &prior_ranges {
+                    if let Some(result) = rule.eval_range(prior_range.clone()) {
+                        //next_ranges = result;
+                        next_ranges.push(result);
+                        //println!("!! -->>  {next_ranges:?}");
+                    }
                 }
             }
-            cur_range = new_range.clone();
+            //println!("__set cur_range");
+            prior_ranges = next_ranges.clone();
+            next_ranges.clear();
         }
-        result.push(cur_range);
+
+        result.push(prior_ranges);
     }
 
-    println!("{result:?}");
+    //println!("{:?}", result);
 
-    result.iter().map(|r| r.start).min().unwrap()
-}
-
-fn main() {
-    let lines = include_str!("input.txt").lines();
-
-    println!("Part 1: {}", part1(lines.clone()));
-    println!("Part 2: {}", part2(lines));
+    result.iter().flatten().map(|r| r.start).min().unwrap()
 }
 
 #[derive(Debug)]
@@ -135,9 +117,9 @@ impl Rule {
             let dest_start = self.destination_start + index;
             let dest_end = dest_start + size;
 
-            println!("    source_range: {:?}", self.source_range);
-            println!("    dest_start: {}", self.destination_start);
-            println!("    ss: {source_start}, se: {source_end}, idx: {index}, sz: {size}\n    ds: {dest_start}, de: {dest_end}");
+            //println!("    source_range: {:?}", self.source_range);
+            //println!("    dest_start: {}", self.destination_start);
+            //println!("    ss: {source_start}, se: {source_end}, idx: {index}, sz: {size}\n    ds: {dest_start}, de: {dest_end}");
 
             Some(dest_start..dest_end)
         } else {
@@ -146,31 +128,37 @@ impl Rule {
     }
 }
 
-const MAP_ORDER: [&str; 7] = [
-    "seed-to-soil",
-    "soil-to-fertilizer",
-    "fertilizer-to-water",
-    "water-to-light",
-    "light-to-temperature",
-    "temperature-to-humidity",
-    "humidity-to-location",
-];
+fn build_maps(lines: Lines<'static>) -> HashMap<&'static str, Vec<Rule>> {
+    let mut maps: HashMap<&'static str, Vec<Rule>> = HashMap::default();
+    let mut current_map = None;
 
-/*
-struct RangeMap<T> {
-    inner: Range<T>,
+    lines.for_each(|line| {
+        if line.contains("map") {
+            if let Some((map_name, _)) = line.split_once(' ') {
+                current_map = Some(map_name);
+                maps.insert(map_name, Vec::new());
+            }
+        } else if line.is_empty() {
+            current_map = None;
+        }
+
+        if line.starts_with(|x: char| x.is_ascii_digit()) {
+            if let Some(map_name) = current_map {
+                let mut values = line.split(' ').map(|x| x.parse::<usize>());
+
+                let destination_start = values.next().unwrap().unwrap();
+                let source_start = values.next().unwrap().unwrap();
+                let source_end = source_start + values.next().unwrap().unwrap();
+
+                let rule = Rule {
+                    destination_start,
+                    source_range: source_start..source_end,
+                };
+
+                maps.get_mut(map_name).unwrap().push(rule);
+            }
+        }
+    });
+
+    maps
 }
-
-impl<T> RangeMap<T> {
-    fn
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn range_map() {
-    }
-}
-*/
