@@ -1,24 +1,12 @@
 use std::collections::HashMap;
 
 fn main() {
-    println!("Part 1: {}", part1());
+    println!("Part 1: {}", run_game(Game::Jacks));
+    println!("Part 2: {}", run_game(Game::Jokers));
 }
 
-fn part1() -> usize {
-    let lines = include_str!("input.txt").lines();
-    let mut hands = lines.fold(HashMap::new(), |mut acc, line| {
-        let mut line = line.split_ascii_whitespace();
-        let hand = Hand {
-            cards: line.next().unwrap(),
-            bid: line.next().unwrap().parse::<usize>().unwrap(),
-        };
-
-        acc.entry(hand.hand_type())
-            .and_modify(|x: &mut Vec<Hand>| x.push(hand.clone()))
-            .or_insert(vec![hand]);
-
-        acc
-    });
+fn run_game(game: Game) -> usize {
+    let mut hands = hands(game);
 
     for hand_type in hands.values_mut() {
         hand_type.sort_by_key(|x| x.as_number());
@@ -45,10 +33,30 @@ fn part1() -> usize {
     all.iter().enumerate().map(|(i, x)| x.bid * (i + 1)).sum()
 }
 
+fn hands(game: Game) -> HashMap<HandType, Vec<Hand<'static>>> {
+    let lines = include_str!("input.txt").lines();
+
+    lines.fold(HashMap::new(), |mut acc, line| {
+        let mut line = line.split_ascii_whitespace();
+        let hand = Hand {
+            cards: line.next().unwrap(),
+            bid: line.next().unwrap().parse::<usize>().unwrap(),
+            game,
+        };
+
+        acc.entry(hand.hand_type())
+            .and_modify(|x: &mut Vec<Hand>| x.push(hand.clone()))
+            .or_insert(vec![hand]);
+
+        acc
+    })
+}
+
 #[derive(Clone, Debug)]
 struct Hand<'a> {
     cards: &'a str,
     bid: usize,
+    game: Game,
 }
 
 impl Hand<'_> {
@@ -57,14 +65,22 @@ impl Hand<'_> {
             .chars()
             .enumerate()
             .fold(0, |mut acc, (i, card)| {
-                acc += 13usize.pow(4 - i as u32) * Self::card_order(&card);
+                acc += 13usize.pow(4 - i as u32) * self.card_order(&card);
 
                 acc
             })
     }
 
     fn hand_type(&self) -> HandType {
-        let cards = self.cards.to_string();
+        let mut cards = self.cards.to_string();
+
+        let joker_count = if let Game::Jokers = self.game {
+            let old_len = cards.len();
+            cards = cards.replace('J', "");
+            old_len - cards.len()
+        } else {
+            0
+        };
 
         let cards = cards.chars().fold(HashMap::new(), |mut acc, x| {
             acc.entry(x).and_modify(|x| *x += 1).or_insert(1);
@@ -74,35 +90,60 @@ impl Hand<'_> {
         let mut ranks = cards.values().copied().collect::<Vec<usize>>();
         ranks.sort_by(|a, b| b.cmp(a));
 
-        if ranks[0] == 5 {
+        let mut hand_type = if ranks.is_empty() {
+            HandType::None
+        } else if ranks[0] == 5 {
             HandType::FiveOfAKind
         } else if ranks[0] == 4 {
             HandType::FourOfAKind
-        } else if ranks[0] == 3 && ranks[1] == 2 {
+        } else if ranks[0] == 3 && ranks.len() > 1 && ranks[1] == 2 {
             HandType::FullHouse
         } else if ranks[0] == 3 {
             HandType::ThreeOfAKind
-        } else if ranks[0] == 2 && ranks[1] == 2 {
+        } else if ranks[0] == 2 && ranks.len() > 1 && ranks[1] == 2 {
             HandType::TwoPair
         } else if ranks[0] == 2 {
             HandType::OnePair
         } else {
             HandType::HighCard
+        };
+
+        for _ in 0..joker_count {
+            hand_type = match hand_type {
+                HandType::None => HandType::HighCard,
+                HandType::HighCard => HandType::OnePair,
+                HandType::OnePair => HandType::ThreeOfAKind,
+                HandType::TwoPair => HandType::FullHouse,
+                HandType::ThreeOfAKind => HandType::FourOfAKind,
+                HandType::FullHouse => panic!(),
+                HandType::FourOfAKind => HandType::FiveOfAKind,
+                HandType::FiveOfAKind => panic!(),
+            }
         }
+
+        hand_type
     }
 
-    fn card_order(card: &char) -> usize {
+    fn card_order(&self, card: &char) -> usize {
+        let inc = match self.game {
+            Game::Jacks => 0,
+            Game::Jokers => 1,
+        };
+
         match card {
-            '2' => 0,
-            '3' => 1,
-            '4' => 2,
-            '5' => 3,
-            '6' => 4,
-            '7' => 5,
-            '8' => 6,
-            '9' => 7,
-            'T' => 8,
-            'J' => 9,
+            '2' => inc,
+            '3' => 1 + inc,
+            '4' => 2 + inc,
+            '5' => 3 + inc,
+            '6' => 4 + inc,
+            '7' => 5 + inc,
+            '8' => 6 + inc,
+            '9' => 7 + inc,
+            'T' => 8 + inc,
+            'J' => match self.game {
+                Game::Jacks => 9,
+                Game::Jokers => 0,
+            },
             'Q' => 10,
             'K' => 11,
             'A' => 12,
@@ -111,8 +152,15 @@ impl Hand<'_> {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+enum Game {
+    Jacks,
+    Jokers,
+}
+
 #[derive(Debug, PartialEq, Eq, Hash)]
 enum HandType {
+    None,
     HighCard,
     OnePair,
     TwoPair,
@@ -120,4 +168,19 @@ enum HandType {
     FullHouse,
     FourOfAKind,
     FiveOfAKind,
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn part1_correct_answer() {
+        assert_eq!(252295678, run_game(Game::Jacks));
+    }
+
+    #[test]
+    fn part2_correct_answer() {
+        assert_eq!(250577259, run_game(Game::Jokers));
+    }
 }
