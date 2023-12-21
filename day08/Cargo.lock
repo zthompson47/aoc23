@@ -5,3 +5,21 @@ version = 3
 [[package]]
 name = "day08"
 version = "0.1.0"
+dependencies = [
+ "lcmx",
+]
+
+[[package]]
+name = "gcdx"
+version = "0.1.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c44da21b7da62032956eb3a8f0cd140378850f977843ec02ef906e1d584522be"
+
+[[package]]
+name = "lcmx"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb2b9fe5cb6ab6638a9077e0bf09c806ea41fb82a70e9af158c5d3b07c7ccaab"
+dependencies = [
+ "gcdx",
+]
