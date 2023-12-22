@@ -35,17 +35,9 @@ fn part1() -> usize {
         panic!()
     };
 
-    dbg!(start.unwrap().coords);
-    dbg!(path1.coords);
-    let mut step = 0;
     while path1.coords != path2.coords {
         path1 = path1.advance(&grid);
         path2 = path2.advance(&grid);
-        dbg!(path1.coords);
-        //if step == 7 {
-        //    break;
-        //}
-        step += 1;
     }
 
     path1.steps
@@ -196,7 +188,6 @@ impl Position {
             }
         }
 
-        dbg!(self.coords);
         panic!()
     }
 }
@@ -244,5 +235,15 @@ impl From<char> for Pipe {
             'S' => Pipe::Start,
             _ => panic!(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pt1() {
+        assert_eq!(6768, part1());
     }
 }
