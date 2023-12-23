@@ -1,8 +1,12 @@
+use std::panic;
+
 fn main() {
-    println!("Part 1: {}", part1());
+    let results = solve();
+    println!("Part 1: {}", results.0);
+    println!("Part 2: {}", results.1);
 }
 
-fn part1() -> usize {
+fn solve() -> (usize, usize) {
     let grid = include_str!("input.txt")
         .lines()
         .fold(Vec::new(), |mut acc, x| {
@@ -23,24 +27,136 @@ fn part1() -> usize {
             }
         }
     }
+    let start = start.unwrap();
 
-    let (mut path1, mut path2) = if let Some(start) = start {
+    let (mut path1, mut path2) = {
         let surrounding = Surrounding::from((&grid, start));
         let routes = surrounding.routes(&grid);
-
         assert_eq!(2, routes.len());
-
         (routes[0], routes[1])
-    } else {
-        panic!()
     };
 
+    let mut solution = vec![vec![Pipe::Ground; grid[0].len()]; grid.len()];
+    solution[start.coords.0][start.coords.1] = {
+        use Direction::*;
+        match (direction(&start, &path1), direction(&start, &path2)) {
+            (North, South) | (South, North) => Pipe::Vertical,
+            (East, West) | (West, East) => Pipe::Horizontal,
+            (North, East) | (East, North) => Pipe::NorthEast,
+            (North, West) | (West, North) => Pipe::NorthWest,
+            (South, East) | (East, South) => Pipe::SouthEast,
+            (South, West) | (West, South) => Pipe::SouthWest,
+            _ => panic!(),
+        }
+    };
+
+    solution[path1.coords.0][path1.coords.1] = path1.pipe(&grid);
+    solution[path2.coords.0][path2.coords.1] = path2.pipe(&grid);
     while path1.coords != path2.coords {
         path1 = path1.advance(&grid);
         path2 = path2.advance(&grid);
+        solution[path1.coords.0][path1.coords.1] = path1.pipe(&grid);
+        solution[path2.coords.0][path2.coords.1] = path2.pipe(&grid);
+    }
+    print_solution(fill_enclosed(solution.as_mut_slice()));
+
+    let enclosed = solution
+        .iter()
+        .flatten()
+        .filter(|x| **x == Pipe::Filled)
+        .collect::<Vec<_>>()
+        .len();
+
+    (path1.steps, enclosed)
+}
+
+fn print_solution(solution: &[Vec<Pipe>]) {
+    for row in solution {
+        let row = row.iter().map(|x| x.as_char()).collect::<String>();
+        println!("{row}");
+    }
+}
+
+fn fill_enclosed(solution: &mut [Vec<Pipe>]) -> &[Vec<Pipe>] {
+    use FillState::*;
+    use Pipe::*;
+    for row in (*solution).iter_mut() {
+        let mut state = FillState::Outside;
+        for pipe in row.iter_mut() {
+            match pipe {
+                Ground => match state {
+                    Inside => *pipe = Filled,
+                    Outside => (),
+                    _ => panic!(),
+                },
+
+                NorthWest => match state {
+                    Border(Direction::North) => state = Outside,
+                    Border(Direction::South) => state = Inside,
+                    _ => panic!(),
+                },
+                NorthEast => match state {
+                    Outside => state = Border(Direction::North),
+                    Inside => state = Border(Direction::South),
+                    Border(_) => panic!(),
+                },
+                SouthWest => match state {
+                    Border(Direction::North) => state = Inside,
+                    Border(Direction::South) => state = Outside,
+                    _ => panic!(),
+                },
+                SouthEast => match state {
+                    Outside => state = Border(Direction::South),
+                    Inside => state = Border(Direction::North),
+                    Border(_) => panic!(),
+                },
+
+                Horizontal => match state {
+                    Outside | Inside => panic!(),
+                    _ => {}
+                },
+                Vertical => match state {
+                    Outside => state = Inside,
+                    Inside => state = Outside,
+                    _ => panic!(),
+                },
+
+                Start => panic!(),
+                Filled => panic!(),
+            }
+        }
     }
 
-    path1.steps
+    solution
+}
+
+#[derive(Debug)]
+enum FillState {
+    Outside,
+    Inside,
+    Border(Direction),
+}
+
+#[derive(Debug)]
+enum Direction {
+    North,
+    East,
+    South,
+    West,
+}
+
+fn direction(from: &Position, to: &Position) -> Direction {
+    if from.coords.0 > to.coords.0 {
+        Direction::North
+    } else if from.coords.0 < to.coords.0 {
+        Direction::South
+    } else if from.coords.1 > to.coords.1 {
+        Direction::West
+    } else if from.coords.1 < to.coords.1 {
+        Direction::East
+    } else {
+        panic!()
+    }
 }
 
 type Grid = Vec<Vec<Pipe>>;
@@ -202,6 +318,7 @@ enum Pipe {
     SouthEast,
     Vertical,
     Start,
+    Filled,
 }
 
 impl Pipe {
@@ -219,6 +336,20 @@ impl Pipe {
 
     fn open_east(&self) -> bool {
         [Pipe::Horizontal, Pipe::NorthEast, Pipe::SouthEast].contains(self)
+    }
+
+    fn as_char(&self) -> char {
+        match self {
+            Pipe::Vertical => '┃',
+            Pipe::Horizontal => '━',
+            Pipe::NorthEast => '┗',
+            Pipe::NorthWest => '┛',
+            Pipe::SouthWest => '┓',
+            Pipe::SouthEast => '┏',
+            Pipe::Ground => ' ',
+            Pipe::Start => 'S',
+            Pipe::Filled => '*',
+        }
     }
 }
 
@@ -244,6 +375,6 @@ mod tests {
 
     #[test]
     fn pt1() {
-        assert_eq!(6768, part1());
+        assert_eq!((6768, 351), solve());
     }
 }
