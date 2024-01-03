@@ -1,8 +1,7 @@
-use std::cmp::Ordering;
+use std::collections::HashSet;
 
 fn main() {
     println!("Part 0: {}", part0());
-    //println!("Part 1: {}", part1());
 }
 
 fn part0() -> usize {
@@ -21,29 +20,49 @@ fn part0() -> usize {
             acc
         });
 
-    for (inner, groups) in rows.as_slice() {
-        let iter = ConditionStr::new(inner, groups);
+    let mut solutions = HashSet::new();
+    let mut solutions_with_dupes = Vec::new();
+    let rows_len = rows.len();
+    //let mut i = 0;
+
+    for (i, (inner, groups)) in rows.as_slice().iter().enumerate() {
         let regex = groups_regex(groups);
-        for (possible_solution, groups) in iter {
+        println!("{i}/{rows_len} {regex}");
+        for possible_solution in Permutate::new(inner) {
             if is_solution(&possible_solution, &regex) {
-                //println!("Y - {possible_solution} {groups:?}");
+                if !solutions.insert((i, possible_solution.clone())) {
+                    //println!("_DUPE_");
+                } else {
+                    println!("Y - {possible_solution} {groups:?}");
+                }
+                solutions_with_dupes.push(possible_solution);
             } else {
-                println!("N - {possible_solution} {groups:?}");
+                //println!("N - {possible_solution} {groups:?}");
             }
         }
+        //i += 1;
     }
 
-    0
-}
+    println!("------>> {}", solutions_with_dupes.len());
 
-struct ConditionStr<'a> {
-    inner: &'static str,
-    groups: &'a [usize],
-    count: usize,
+    solutions.len()
 }
 
 fn groups_regex(groups: &[usize]) -> regex::Regex {
-    let result = format!(r"([?#]{{{}}}[?.])", groups[0]);
+    let mut result = String::from("^");
+    for (i, group) in groups.iter().enumerate() {
+        result.push_str("[?.]*[?#]{");
+        let num = format!("{group}");
+        result.push_str(num.as_str());
+        if i < groups.len() - 1 {
+            result.push_str("}[?.]");
+        } else {
+            result.push_str("}[?.]*$");
+        }
+    }
+    //let result = format!(r"([?#]{{{}}}[?.])", groups[0]);
+    //println!("-->> {} <<--", result);
+
     regex::Regex::new(&result).unwrap()
 }
 
@@ -55,18 +74,19 @@ fn is_solution(solution: &str, regex: &regex::Regex) -> bool {
     }
 }
 
-impl<'a> ConditionStr<'a> {
-    fn new(inner: &'static str, groups: &'a [usize]) -> Self {
-        ConditionStr {
-            inner,
-            groups,
-            count: 0,
-        }
+struct Permutate {
+    inner: &'static str,
+    count: usize,
+}
+
+impl Permutate {
+    fn new(inner: &'static str) -> Self {
+        Permutate { inner, count: 0 }
     }
 }
 
-impl Iterator for ConditionStr<'_> {
-    type Item = (String, Vec<usize>);
+impl Iterator for Permutate {
+    type Item = String;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.count < 2usize.pow(self.inner.len() as u32) {
@@ -87,132 +107,19 @@ impl Iterator for ConditionStr<'_> {
 
             self.count += 1;
 
-            Some((result, self.groups.to_vec()))
+            Some(result)
         } else {
             None
         }
     }
 }
 
-fn split_min(input: &str, size: usize) -> (&str, &str) {
-    let re = format!(r"([?#]{{{size}}}[?.])");
-    let re = regex::Regex::new(&re).unwrap();
-    let m = re.find(input).unwrap();
-    input.split_at(m.end())
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-fn _split_min(input: &str, size: usize) -> (&str, &str) {
-    let mut index = 0;
-    let mut count = 0;
-    for (i, ch) in input.chars().enumerate() {
-        println!("{i} {ch}");
-        match ch {
-            '?' => match count.cmp(&size) {
-                Ordering::Less => count += 1,
-                Ordering::Equal => {
-                    index = i;
-                    break;
-                }
-                Ordering::Greater => panic!(),
-            },
-            '#' => match count.cmp(&size) {
-                Ordering::Less => count += 1,
-                Ordering::Equal => count = 0,
-                Ordering::Greater => panic!(),
-            },
-
-            '.' => match count.cmp(&size) {
-                Ordering::Less => count = 0,
-                Ordering::Equal => {
-                    index = i + 1;
-                    break;
-                }
-                Ordering::Greater => panic!(),
-            },
-            _ => panic!(),
-        }
-        println!("cnt: {count}");
-    }
-    println!("idx: {index}");
-
-    input.split_at(index)
-}
-
-fn part1() -> usize {
-    let conditions = include_str!("input.txt")
-        .lines()
-        .map(Condition::from)
-        .collect::<Vec<_>>();
-
-    dbg!(conditions);
-
-    0
-}
-
-#[derive(Debug, Default)]
-struct Condition {
-    inner: &'static str,
-    status: Vec<Status>,
-    groups: Vec<usize>,
-}
-
-impl Condition {
-    fn take_min(&self) -> (&Self, &Self) {
-        let len = self.groups[0];
-        let mut iter = self.status.iter().copied();
-
-        let mut first = Condition::default();
-        let mut rest = Condition::default();
-
-        let mut front = iter
-            .take_while(|x| [Status::Unknown, Status::Damaged].contains(x))
-            .collect::<Vec<_>>();
-
-        while front.len() < len {
-            first.status.append(&mut front);
-        }
-
-        (self, self)
-    }
-}
-
-impl From<&'static str> for Condition {
-    fn from(inner: &'static str) -> Self {
-        let mut parts = inner.split_ascii_whitespace();
-        let status = parts
-            .next()
-            .unwrap()
-            .chars()
-            .map(Status::from)
-            .collect::<Vec<_>>();
-        let groups = parts
-            .next()
-            .unwrap()
-            .split(',')
-            .map(|x| x.parse::<usize>().unwrap())
-            .collect::<Vec<_>>();
-        Self {
-            inner,
-            status,
-            groups,
-        }
-    }
-}
-
-#[derive(Copy, Clone, PartialEq, Debug)]
-enum Status {
-    Unknown,
-    Damaged,
-    Operational,
-}
-
-impl From<char> for Status {
-    fn from(value: char) -> Self {
-        match value {
-            '?' => Self::Unknown,
-            '#' => Self::Damaged,
-            '.' => Self::Operational,
-            _ => panic!(),
-        }
+    #[test]
+    fn solve_part_1() {
+        assert_eq!(7694, part0());
     }
 }
