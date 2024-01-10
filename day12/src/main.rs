@@ -1,32 +1,17 @@
-use std::{
-    collections::{HashSet, VecDeque},
-    fmt::Display,
-};
+use std::collections::{HashSet, VecDeque};
 
 fn main() {
-    //println!("Part 0: {}", part00());
-    //println!("{:#?}", partition(4, 5));
-    for row in partition(3, 3) {
-        println!("{:?}", row);
-    }
+    println!("Part 1: {}", part1());
+    println!("Part 2: {}", part2());
 }
 
 fn partition(tokens: usize, buckets: usize) -> VecDeque<VecDeque<usize>> {
-    //println!("call: ({}, {})", tokens, buckets);
     let mut result = VecDeque::new();
-
     if buckets == 1 {
-        //println!("_______--X--{}__________", tokens);
         result.push_back(VecDeque::from(vec![VecDeque::from(vec![tokens])]));
         return result.into_iter().flatten().collect();
     }
-
     for i in 0..=tokens {
-        //if buckets == 1 {
-        //    println!("_______--X--{}__________", tokens);
-        //    result.push_back(VecDeque::from(vec![VecDeque::from(vec![tokens])]));
-        //} else {
-        //println!("_______recurse__________");
         result.push_back(
             partition(tokens - i, buckets - 1)
                 .into_iter()
@@ -36,14 +21,11 @@ fn partition(tokens: usize, buckets: usize) -> VecDeque<VecDeque<usize>> {
                 })
                 .collect(),
         );
-        //}
     }
-    //println!("end: ({}, {})", tokens, buckets);
     result.into_iter().flatten().collect()
-    //result
 }
 
-fn part00() -> usize {
+fn part2() -> usize {
     let rows = include_str!("input.txt")
         .lines()
         .fold(Vec::new(), |mut acc, row| {
@@ -59,14 +41,19 @@ fn part00() -> usize {
             acc
         });
 
+    let mut result = 0;
     for row in rows {
-        println!("{row:?}");
-        for bla in row.solutions() {
-            println!("bla: {bla}");
+        //println!("groups: {:?}", row.groups);
+        for partition in &row.partitions {
+            //println!("partition: {:?}", partition);
+            let is_solution = row.is_solution(partition);
+            //println!("________{}_____________", is_solution);
+            if is_solution {
+                result += 1;
+            }
         }
     }
-
-    0
+    result
 }
 
 #[derive(Debug)]
@@ -87,24 +74,72 @@ fn part00() -> usize {
 struct PipeRow {
     string: String,
     groups: Vec<usize>,
-    space: usize,
+    partitions: VecDeque<VecDeque<usize>>,
 }
 
 impl PipeRow {
     fn new(string: &str, groups: Vec<usize>) -> Self {
         let space = string.len() - groups.iter().sum::<usize>() - (groups.len() - 1);
+        let partitions = partition(space, groups.len() + 1);
         PipeRow {
             string: String::from(string),
             groups,
-            space,
+            partitions,
         }
     }
 
-    fn solutions(&self) -> PossibleGroupings<'_> {
-        PossibleGroupings::new(self)
+    //fn solutions(&self) -> PossibleGroupings<'_> {
+    //    PossibleGroupings::new(self)
+    //}
+
+    fn is_solution(&self, partition: &VecDeque<usize>) -> bool {
+        //println!("{partition:?}");
+        let mut partition = partition.iter();
+        let mut solution = vec!['.'; self.string.len()];
+        let mut index = *partition.next().unwrap();
+
+        for _ in 0..self.groups[0] {
+            solution[index] = '#';
+            index += 1;
+        }
+        index += 1;
+
+        partition.zip(self.groups[1..].iter()).for_each(|(p, g)| {
+            for _ in 0..*p {
+                solution[index] = '.';
+                index += 1;
+            }
+            for _ in 0..*g {
+                solution[index] = '#';
+                index += 1;
+            }
+            index += 1;
+        });
+
+        //println!("ground: {}", self.string);
+        //println!("signal: {}", solution.iter().collect::<String>());
+
+        for (solution, string) in solution.iter().zip(self.string.chars()) {
+            match string {
+                '#' => {
+                    if *solution != '#' {
+                        return false;
+                    }
+                }
+                '.' => {
+                    if *solution != '.' {
+                        return false;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        true
     }
 }
 
+/*
 struct PossibleGroupings<'a> {
     row: &'a PipeRow,
     index: usize,
@@ -132,8 +167,9 @@ impl Iterator for PossibleGroupings<'_> {
         }
     }
 }
+*/
 
-fn part0() -> usize {
+fn part1() -> usize {
     let rows = include_str!("input.txt")
         .lines()
         .fold(Vec::new(), |mut acc, row| {
@@ -147,6 +183,7 @@ fn part0() -> usize {
                 .collect::<Vec<_>>();
 
             // Part 2
+            /*
             let a = String::from(status);
             let b = [a.as_str(), a.as_str(), a.as_str(), a.as_str(), a.as_str()].join("?");
             let g = [
@@ -159,37 +196,38 @@ fn part0() -> usize {
             .concat();
             acc.push((b.clone(), g.clone()));
             acc
+            */
 
             // Part 1
-            //acc.push((status, groups));
-            //acc
+            acc.push((status, groups));
+            acc
         });
 
     let mut solutions = HashSet::new();
     let mut solutions_with_dupes = Vec::new();
-    let rows_len = rows.len();
+    //let rows_len = rows.len();
     //let mut i = 0;
 
     for (i, (inner, groups)) in rows.as_slice().iter().enumerate() {
         let regex = groups_regex(groups);
-        println!("{i}/{rows_len} {regex}");
-        let inner = inner.clone();
-        for possible_solution in Permutate::new(inner) {
+        //println!("{i}/{rows_len} {regex}");
+        //let inner = inner.clone();
+        for possible_solution in Permutate::new(inner.to_string()) {
             if is_solution(&possible_solution, &regex) {
                 if !solutions.insert((i, possible_solution.clone())) {
                     //println!("_DUPE_");
                 } else {
-                    println!("Y - {possible_solution} {groups:?}");
+                    //println!("Y - {possible_solution} {groups:?}");
                 }
                 solutions_with_dupes.push(possible_solution);
             } else {
-                println!("N - {possible_solution} {groups:?}");
+                //println!("N - {possible_solution} {groups:?}");
             }
         }
         //i += 1;
     }
 
-    println!("------>> {}", solutions_with_dupes.len());
+    //println!("------>> {}", solutions_with_dupes.len());
 
     solutions.len()
 }
@@ -235,8 +273,8 @@ impl Iterator for Permutate {
     type Item = String;
 
     fn next(&mut self) -> Option<Self::Item> {
-        println!("{}", self.inner);
-        println!("!!!!!!! {}", self.inner.len());
+        //println!("{}", self.inner);
+        //println!("!!!!!!! {}", self.inner.len());
         if (self.count as u64) < 2u64.pow(self.inner.len() as u32) {
             let mask = format!("{:01$b}", self.count, self.inner.len());
 
@@ -268,6 +306,6 @@ mod tests {
 
     #[test]
     fn solve_part_1() {
-        assert_eq!(7694, part0());
+        assert_eq!(7694, part1());
     }
 }
