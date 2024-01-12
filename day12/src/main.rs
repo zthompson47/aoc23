@@ -1,31 +1,65 @@
-use std::collections::{HashSet, VecDeque};
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    sync::{Arc, Mutex},
+};
 
 fn main() {
-    println!("Part 1: {}", part1());
+    //println!("Part 1: {}", part1());
     println!("Part 2: {}", part2());
+
+    /*
+    let cache = Arc::new(Mutex::new(HashMap::new()));
+    for i in 1..15 {
+        for j in 1..15 {
+            let _ = partition(i, j, cache.clone());
+        }
+    }
+    */
+
+    //println!("{:?}", part);
+    //println!("part: {}", part.len());
+    //println!("cache: {}", cache.lock().unwrap().keys().len());
 }
 
-fn partition(tokens: usize, buckets: usize) -> VecDeque<VecDeque<usize>> {
+#[derive(Clone)]
+struct Context {
+    cache: Cache,
+    string: String,
+}
+
+type Cache = Arc<Mutex<HashMap<(usize, usize), VecDeque<VecDeque<usize>>>>>;
+
+fn partition(tokens: usize, buckets: usize, context: &Context) -> VecDeque<VecDeque<usize>> {
     let mut result = VecDeque::new();
+    //println!("{:?}", context.cache.lock().unwrap().keys().len());
+
     if buckets == 1 {
         result.push_back(VecDeque::from(vec![VecDeque::from(vec![tokens])]));
-        return result.into_iter().flatten().collect();
-    }
-    for i in 0..=tokens {
-        result.push_back(
-            partition(tokens - i, buckets - 1)
+    } else {
+        for i in 0..=tokens {
+            let partition = partition(tokens - i, buckets - 1, context)
                 .into_iter()
                 .map(|mut x| {
                     x.push_front(i);
                     x
                 })
-                .collect(),
-        );
+                .collect::<VecDeque<VecDeque<usize>>>();
+
+            context
+                .cache
+                .lock()
+                .unwrap()
+                .insert((tokens, buckets), partition.clone());
+
+            result.push_back(partition);
+        }
     }
+
     result.into_iter().flatten().collect()
 }
 
 fn part2() -> usize {
+    let cache = Arc::new(Mutex::new(HashMap::new()));
     let rows = include_str!("input.txt")
         .lines()
         .fold(Vec::new(), |mut acc, row| {
@@ -37,22 +71,49 @@ fn part2() -> usize {
                 .split(',')
                 .map(|x| x.parse::<usize>().unwrap())
                 .collect::<Vec<_>>();
-            acc.push(PipeRow::new(string, groups));
-            acc
-        });
 
+            let a = String::from(string);
+            let b = [a.as_str(), a.as_str(), a.as_str(), a.as_str(), a.as_str()].join("?");
+            let g = [
+                groups.as_slice(),
+                groups.as_slice(),
+                groups.as_slice(),
+                groups.as_slice(),
+                groups.as_slice(),
+            ]
+            .concat();
+
+            let context = Context {
+                cache: cache.clone(),
+                string: string.to_string(),
+            };
+            acc.push(PipeRow::new(&b, g, context));
+            acc
+
+            //acc.push(PipeRow::new(string, groups, cache.clone()));
+            //acc
+        });
+    let mut max = (0, 0);
     let mut result = 0;
+
     for row in rows {
-        //println!("groups: {:?}", row.groups);
+        println!("@@@ {} {} {}", row.space, row.groups.len(), row.string);
+        if row.space > max.0 {
+            max.0 = row.space;
+        }
+        if row.groups.len() > max.1 {
+            max.1 = row.groups.len();
+        }
+
         for partition in &row.partitions {
-            //println!("partition: {:?}", partition);
             let is_solution = row.is_solution(partition);
-            //println!("________{}_____________", is_solution);
             if is_solution {
                 result += 1;
             }
         }
     }
+
+    println!("{:?}", max);
     result
 }
 
@@ -75,22 +136,23 @@ struct PipeRow {
     string: String,
     groups: Vec<usize>,
     partitions: VecDeque<VecDeque<usize>>,
+    space: usize,
 }
 
 impl PipeRow {
-    fn new(string: &str, groups: Vec<usize>) -> Self {
+    fn new(string: &str, groups: Vec<usize>, context: Context) -> Self {
         let space = string.len() - groups.iter().sum::<usize>() - (groups.len() - 1);
-        let partitions = partition(space, groups.len() + 1);
+        let partitions = partition(space, groups.len() + 1, &context);
+
+        println!("cache len: {}", context.cache.lock().unwrap().keys().len());
+
         PipeRow {
             string: String::from(string),
             groups,
             partitions,
+            space,
         }
     }
-
-    //fn solutions(&self) -> PossibleGroupings<'_> {
-    //    PossibleGroupings::new(self)
-    //}
 
     fn is_solution(&self, partition: &VecDeque<usize>) -> bool {
         //println!("{partition:?}");
@@ -139,36 +201,7 @@ impl PipeRow {
     }
 }
 
-/*
-struct PossibleGroupings<'a> {
-    row: &'a PipeRow,
-    index: usize,
-}
-
-impl<'a> PossibleGroupings<'a> {
-    fn new(pipe_row: &'a PipeRow) -> Self {
-        PossibleGroupings {
-            row: pipe_row,
-            index: 0,
-        }
-    }
-}
-
-impl Iterator for PossibleGroupings<'_> {
-    type Item = String;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let index = self.index;
-        self.index += 1;
-
-        match index {
-            5 => None,
-            _ => Some(String::from("42")),
-        }
-    }
-}
-*/
-
+#[allow(unused)]
 fn part1() -> usize {
     let rows = include_str!("input.txt")
         .lines()
@@ -205,30 +238,18 @@ fn part1() -> usize {
 
     let mut solutions = HashSet::new();
     let mut solutions_with_dupes = Vec::new();
-    //let rows_len = rows.len();
-    //let mut i = 0;
 
     for (i, (inner, groups)) in rows.as_slice().iter().enumerate() {
         let regex = groups_regex(groups);
-        //println!("{i}/{rows_len} {regex}");
-        //let inner = inner.clone();
         for possible_solution in Permutate::new(inner.to_string()) {
             if is_solution(&possible_solution, &regex) {
-                if !solutions.insert((i, possible_solution.clone())) {
-                    //println!("_DUPE_");
-                } else {
-                    //println!("Y - {possible_solution} {groups:?}");
-                }
+                solutions.insert((i, possible_solution.clone()));
                 solutions_with_dupes.push(possible_solution);
-            } else {
-                //println!("N - {possible_solution} {groups:?}");
             }
         }
-        //i += 1;
     }
 
     //println!("------>> {}", solutions_with_dupes.len());
-
     solutions.len()
 }
 
