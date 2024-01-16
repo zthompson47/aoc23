@@ -21,10 +21,11 @@ fn main() {
     //println!("cache: {}", cache.lock().unwrap().keys().len());
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct Context {
     cache: Cache,
     string: String,
+    groups: Vec<usize>,
 }
 
 type Cache = Arc<Mutex<HashMap<(usize, usize), VecDeque<VecDeque<usize>>>>>;
@@ -33,11 +34,54 @@ fn partition(tokens: usize, buckets: usize, context: &Context) -> VecDeque<VecDe
     let mut result = VecDeque::new();
     //println!("{:?}", context.cache.lock().unwrap().keys().len());
 
+    //println!("{:?}", context);
+
     if buckets == 1 {
         result.push_back(VecDeque::from(vec![VecDeque::from(vec![tokens])]));
     } else {
+        let st = context.string.as_str().chars().collect::<Vec<char>>();
         for i in 0..=tokens {
-            let partition = partition(tokens - i, buckets - 1, context)
+            //println!(
+            //    "tok {}, buc {}, str {}, grp {:?}",
+            //    i, buckets, context.string, context.groups
+            //);
+            //println!("   ln is {}, i is {}", st.len(), i);
+
+            // Check that the spaces don't cover a pipe.
+            if st[..i].contains(&'#') {
+                //println!("   #");
+                continue;
+            }
+
+            let group_len = context.groups[(context.groups.len() + 1) - buckets];
+            //println!("   _____group_len__: {}", group_len);
+
+            // Check that the following pipes don't cover a space.
+            if group_len >= i && st[i..group_len].contains(&'.') {
+                //println!("  .");
+                continue;
+            }
+
+            // Check that there's ground after the last pipe.
+            if i + group_len < st.len() && st[i + group_len] == '#' {
+                //println!("   #(end)");
+                continue;
+            }
+
+            let end = if i + group_len < st.len() {
+                group_len + 1
+            } else {
+                group_len
+            };
+            let string = st[i + end..].iter().collect::<String>();
+
+            let context = Context {
+                cache: context.cache.clone(),
+                string,
+                groups: context.groups.clone(),
+            };
+
+            let partition = partition(tokens - i, buckets - 1, &context)
                 .into_iter()
                 .map(|mut x| {
                     x.push_front(i);
@@ -73,8 +117,9 @@ fn part2() -> usize {
                 .collect::<Vec<_>>();
 
             let a = String::from(string);
-            let b = [a.as_str(), a.as_str(), a.as_str(), a.as_str(), a.as_str()].join("?");
-            let g = [
+            let string = [a.as_str(), a.as_str(), a.as_str(), a.as_str(), a.as_str()].join("?");
+            let string = string.as_str();
+            let groups = [
                 groups.as_slice(),
                 groups.as_slice(),
                 groups.as_slice(),
@@ -86,8 +131,9 @@ fn part2() -> usize {
             let context = Context {
                 cache: cache.clone(),
                 string: string.to_string(),
+                groups: groups.clone(),
             };
-            acc.push(PipeRow::new(&b, g, context));
+            acc.push(PipeRow::new(string, groups, context));
             acc
 
             //acc.push(PipeRow::new(string, groups, cache.clone()));
@@ -97,7 +143,7 @@ fn part2() -> usize {
     let mut result = 0;
 
     for row in rows {
-        println!("@@@ {} {} {}", row.space, row.groups.len(), row.string);
+        //println!("@@@ {} {} {}", row.space, row.groups.len(), row.string);
         if row.space > max.0 {
             max.0 = row.space;
         }
@@ -113,7 +159,7 @@ fn part2() -> usize {
         }
     }
 
-    println!("{:?}", max);
+    //println!("!!!!!!!!!!!!___?????______{:?}", max);
     result
 }
 
@@ -141,10 +187,13 @@ struct PipeRow {
 
 impl PipeRow {
     fn new(string: &str, groups: Vec<usize>, context: Context) -> Self {
+        //println!("______piperow: {} {:?}", string, groups);
         let space = string.len() - groups.iter().sum::<usize>() - (groups.len() - 1);
         let partitions = partition(space, groups.len() + 1, &context);
 
-        println!("cache len: {}", context.cache.lock().unwrap().keys().len());
+        //println!("cache len: {}", context.cache.lock().unwrap().keys().len());
+
+        //println!("::::::::::::::>>> {:?}", partitions);
 
         PipeRow {
             string: String::from(string),
@@ -155,7 +204,7 @@ impl PipeRow {
     }
 
     fn is_solution(&self, partition: &VecDeque<usize>) -> bool {
-        //println!("{partition:?}");
+        //println!(">>is_solution<< {partition:?}");
         let mut partition = partition.iter();
         let mut solution = vec!['.'; self.string.len()];
         let mut index = *partition.next().unwrap();
