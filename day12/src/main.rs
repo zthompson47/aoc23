@@ -1,36 +1,24 @@
+#![deny(elided_lifetimes_in_paths)]
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     sync::{Arc, Mutex},
 };
 
 fn main() {
-    //println!("Part 1: {}", part1());
-    println!("Part 2: {}", part2());
-
-    /*
-    let cache = Arc::new(Mutex::new(HashMap::new()));
-    for i in 1..15 {
-        for j in 1..15 {
-            let _ = partition(i, j, cache.clone());
-        }
-    }
-    */
-
-    //println!("{:?}", part);
-    //println!("part: {}", part.len());
-    //println!("cache: {}", cache.lock().unwrap().keys().len());
+    println!("Part 1: {}", run(Part::One));
+    //println!("Part 2: {}", run(Part::Two));
 }
 
 #[derive(Clone, Debug)]
-struct Context {
+struct Context<'a> {
     cache: Cache,
-    string: String,
+    string: &'a [char],
     groups: Vec<usize>,
 }
 
 type Cache = Arc<Mutex<HashMap<(usize, usize), VecDeque<VecDeque<usize>>>>>;
 
-fn partition(tokens: usize, buckets: usize, context: &Context) -> VecDeque<VecDeque<usize>> {
+fn partition(tokens: usize, buckets: usize, context: &Context<'_>) -> VecDeque<VecDeque<usize>> {
     let mut result = VecDeque::new();
     //println!("{:?}", context.cache.lock().unwrap().keys().len());
 
@@ -39,7 +27,8 @@ fn partition(tokens: usize, buckets: usize, context: &Context) -> VecDeque<VecDe
     if buckets == 1 {
         result.push_back(VecDeque::from(vec![VecDeque::from(vec![tokens])]));
     } else {
-        let st = context.string.as_str().chars().collect::<Vec<char>>();
+        //let st = context.string.as_str().chars().collect::<Vec<char>>();
+        let st = context.string;
         for i in 0..=tokens {
             //println!(
             //    "tok {}, buc {}, str {}, grp {:?}",
@@ -49,7 +38,7 @@ fn partition(tokens: usize, buckets: usize, context: &Context) -> VecDeque<VecDe
 
             // Check that the spaces don't cover a pipe.
             if st[..i].contains(&'#') {
-                //println!("   #");
+                println!("   #");
                 continue;
             }
 
@@ -58,13 +47,31 @@ fn partition(tokens: usize, buckets: usize, context: &Context) -> VecDeque<VecDe
 
             // Check that the following pipes don't cover a space.
             if group_len >= i && st[i..group_len].contains(&'.') {
-                //println!("  .");
+                println!("  .");
                 continue;
             }
 
             // Check that there's ground after the last pipe.
             if i + group_len < st.len() && st[i + group_len] == '#' {
-                //println!("   #(end)");
+                println!("   #(end)");
+                continue;
+            }
+
+            // Check that the solution will still fit.
+            if i + group_len
+                + 1
+                + (context.groups[1..].iter().sum::<usize>() - 1) // ??
+                + context.groups[1..].len()
+                > st.len()
+            {
+                println!("OVERFLOW {:?}", context.string);
+                println!("OVERFLOW {:?}", st);
+                println!("OVERFLOW {:?}", context.groups);
+                println!(
+                    "OVERFLOW {} {}",
+                    i + context.groups.iter().sum::<usize>() - 1,
+                    st.len()
+                );
                 continue;
             }
 
@@ -73,7 +80,8 @@ fn partition(tokens: usize, buckets: usize, context: &Context) -> VecDeque<VecDe
             } else {
                 group_len
             };
-            let string = st[i + end..].iter().collect::<String>();
+
+            let string = &st[i + end..];
 
             let context = Context {
                 cache: context.cache.clone(),
@@ -102,7 +110,13 @@ fn partition(tokens: usize, buckets: usize, context: &Context) -> VecDeque<VecDe
     result.into_iter().flatten().collect()
 }
 
-fn part2() -> usize {
+#[allow(unused)]
+enum Part {
+    One,
+    Two,
+}
+
+fn run(part: Part) -> usize {
     let cache = Arc::new(Mutex::new(HashMap::new()));
     let rows = include_str!("input.txt")
         .lines()
@@ -116,28 +130,40 @@ fn part2() -> usize {
                 .map(|x| x.parse::<usize>().unwrap())
                 .collect::<Vec<_>>();
 
-            let a = String::from(string);
-            let string = [a.as_str(), a.as_str(), a.as_str(), a.as_str(), a.as_str()].join("?");
-            let string = string.as_str();
-            let groups = [
-                groups.as_slice(),
-                groups.as_slice(),
-                groups.as_slice(),
-                groups.as_slice(),
-                groups.as_slice(),
-            ]
-            .concat();
+            match part {
+                Part::One => {
+                    let context = Context {
+                        cache: cache.clone(),
+                        string: &string.chars().collect::<Vec<char>>(),
+                        groups: groups.clone(),
+                    };
+                    acc.push(PipeRow::new(string, groups, context));
+                    acc
+                }
+                Part::Two => {
+                    let a = String::from(string);
+                    let string =
+                        [a.as_str(), a.as_str(), a.as_str(), a.as_str(), a.as_str()].join("?");
+                    let string = string.as_str();
+                    let groups = [
+                        groups.as_slice(),
+                        groups.as_slice(),
+                        groups.as_slice(),
+                        groups.as_slice(),
+                        groups.as_slice(),
+                    ]
+                    .concat();
 
-            let context = Context {
-                cache: cache.clone(),
-                string: string.to_string(),
-                groups: groups.clone(),
-            };
-            acc.push(PipeRow::new(string, groups, context));
-            acc
-
-            //acc.push(PipeRow::new(string, groups, cache.clone()));
-            //acc
+                    let context = Context {
+                        cache: cache.clone(),
+                        //string: string.to_string(),
+                        string: &string.chars().collect::<Vec<char>>(),
+                        groups: groups.clone(),
+                    };
+                    acc.push(PipeRow::new(string, groups, context));
+                    acc
+                }
+            }
         });
     let mut max = (0, 0);
     let mut result = 0;
@@ -186,7 +212,7 @@ struct PipeRow {
 }
 
 impl PipeRow {
-    fn new(string: &str, groups: Vec<usize>, context: Context) -> Self {
+    fn new(string: &str, groups: Vec<usize>, context: Context<'_>) -> Self {
         //println!("______piperow: {} {:?}", string, groups);
         let space = string.len() - groups.iter().sum::<usize>() - (groups.len() - 1);
         let partitions = partition(space, groups.len() + 1, &context);
