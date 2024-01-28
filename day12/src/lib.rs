@@ -111,7 +111,7 @@ pub enum Part {
     Two,
 }
 
-pub fn run(part: Part) -> usize {
+pub fn run(part: Part) -> Vec<usize> {
     let cache = Arc::new(Mutex::new(HashMap::new()));
     let rows = include_str!("input.txt")
         .lines()
@@ -161,7 +161,8 @@ pub fn run(part: Part) -> usize {
             }
         });
     let mut max = (0, 0);
-    let mut result = 0;
+    let mut _result = 0;
+    let mut result = Vec::new();
 
     for row in rows {
         //println!("@@@ {} {} {}", row.space, row.groups.len(), row.string);
@@ -172,15 +173,19 @@ pub fn run(part: Part) -> usize {
             max.1 = row.groups.len();
         }
 
+        let mut row_count = 0;
         for partition in &row.partitions {
             let is_solution = row.is_solution(partition);
             if is_solution {
-                result += 1;
+                _result += 1;
+                row_count += 1;
             }
         }
+        result.push(row_count);
     }
 
     //println!("!!!!!!!!!!!!___?????______{:?}", max);
+    //_result;
     result
 }
 
@@ -400,7 +405,3 @@ mod tests {
         assert_eq!(7694, part1());
     }
 }
-
-
-
-
