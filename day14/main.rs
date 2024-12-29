@@ -7,39 +7,29 @@ fn main() {
 
     // Spin the grid until we find it cycled back to a prior state, then calculate
     // final state from modulo.
-    let mut grid: Grid<Cell> = Grid::from(include_str!("test.txt"));
+    let mut grid: Grid<Cell> = Grid::from(include_str!("input.txt"));
     let mut cycle_cache: Vec<Grid<Cell>> = Vec::new();
-    let mut repeat = None;
+    let mut repeat = false;
     let cycles = 1_000_000_000;
-    for i in 0..cycles {
+    for _ in 0..cycles {
         grid.tilt(Direction::N);
         grid.tilt(Direction::W);
         grid.tilt(Direction::S);
         grid.tilt(Direction::E);
         if cycle_cache.contains(&grid) {
-            repeat = Some(i);
+            repeat = true;
             cycle_cache.push(grid.clone());
             break;
         }
         cycle_cache.push(grid.clone());
     }
-    if let Some(repeat) = repeat {
+    if repeat {
         let first_repeat = cycle_cache
             .iter()
             .position(|x| x == cycle_cache.last().unwrap())
             .unwrap();
-        println!("first_repeat:{first_repeat}, len cache: {}", cycle_cache.len());
-        for grid in &cycle_cache {
-            println!("-->> {}", grid.score());
-        }
         let index = (cycles - first_repeat - 1) % (cycle_cache.len() - first_repeat - 1);
-        println!("index -->> {index}");
         grid = cycle_cache[first_repeat..cycle_cache.len() - 1][index].clone();
-
-        //let index = (cycles - first_repeat) % (cycle_cache.len() - first_repeat - 2) + first_repeat;
-        //grid = cycle_cache[first_repeat..][index].clone();
-        //let index = (cycles - first_repeat) % (cycle_cache.len() - 1 - first_repeat);
-        //grid = cycle_cache[first_repeat..cycle_cache.len() - 2][index].clone();
     }
     println!("Part 2: {}", grid.score());
 }
