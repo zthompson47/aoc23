@@ -1,7 +1,49 @@
 use std::fmt::Display;
 
 fn main() {
-    let mut mirrors = include_str!("input.txt")
+    let mut mirrors = input();
+    let mut score = 0;
+    for mirror in mirrors.iter_mut() {
+        println!(
+            "rows: {}, columns: {}",
+            mirror.rows.len(),
+            mirror.columns.len()
+        );
+        mirror.calculate_symmetry(false);
+        score += mirror.score();
+        println!("{mirror}");
+    }
+
+    println!("Part 1: {}", score);
+
+    let mut score = 0;
+    //let mut mirrors = input();
+    'mirrors: for mirror in mirrors.iter_mut() {
+        for row in 0..mirror.rows.len() {
+            for column in 0..mirror.columns.len() {
+                // Repeat flip for redundant column/row storage.
+                mirror.rows[row][column] = mirror.rows[row][column].flip();
+                mirror.columns[column][row] = mirror.columns[column][row].flip();
+
+                if mirror.calculate_symmetry(true) {
+                    println!("-----> row:{row} column:{column}");
+                    score += mirror.score();
+                    println!("{mirror}");
+                    continue 'mirrors;
+                }
+
+                // Unflip..
+                mirror.rows[row][column] = mirror.rows[row][column].flip();
+                mirror.columns[column][row] = mirror.columns[column][row].flip();
+            }
+        }
+    }
+
+    println!("Part 2: {}", score);
+}
+
+fn input() -> Vec<Mirror> {
+    include_str!("input.txt")
         .lines()
         .fold(Vec::new(), |mut mirrors, line| {
             if mirrors.is_empty() || line.is_empty() {
@@ -23,21 +65,7 @@ fn main() {
                 }
             }
             mirrors
-        });
-
-    let mut score = 0;
-    for mirror in mirrors.iter_mut() {
-        println!(
-            "rows: {}, columns: {}",
-            mirror.rows.len(),
-            mirror.columns.len()
-        );
-        mirror.calculate_symmetry();
-        score += mirror.score();
-        println!("{mirror}");
-    }
-
-    println!("Part 1: {}", score);
+        })
 }
 
 #[derive(Default, Debug)]
@@ -49,17 +77,23 @@ struct Mirror {
 
 impl Mirror {
     /// Check every possible symmetry line in rows and columns.
-    /// Assume there is a unique line of symmetry for each mirror.
-    fn calculate_symmetry(&mut self) {
+    /// Assume there is a unique line of symmetry for each mirror,
+    /// or there is no symmetry.
+    fn calculate_symmetry(&mut self, replace: bool) -> bool {
+        println!("------------calc");
         'rows: for i in 1..self.rows.len() {
             for j in 1..i.min(self.rows.len() - i) + 1 {
                 if self.rows[i - j] != self.rows[i - 1 + j] {
                     continue 'rows;
                 }
             }
-            assert_eq!(self.symmetry, Symmetry::Unknown);
-            self.symmetry = Symmetry::Row(i);
-            return;
+            println!("__row_{i}____replace:{replace}, self.symmetry:{:?}", self.symmetry);
+            if replace && self.symmetry == Symmetry::Row(i) {
+                continue 'rows;
+            } else {
+                self.symmetry = Symmetry::Row(i);
+                return true;
+            }
         }
         'columns: for i in 1..self.columns.len() {
             for j in 1..i.min(self.columns.len() - i) + 1 {
@@ -67,10 +101,18 @@ impl Mirror {
                     continue 'columns;
                 }
             }
-            assert_eq!(self.symmetry, Symmetry::Unknown);
-            self.symmetry = Symmetry::Column(i);
-            return;
+            println!("__col_____replace:{replace}, self.symmetry:{:?}", self.symmetry);
+            if replace && self.symmetry == Symmetry::Column(i) {
+                continue 'columns;
+            } else {
+                self.symmetry = Symmetry::Column(i);
+                return true;
+            }
         }
+        if !replace {
+            self.symmetry = Symmetry::Unknown;
+        }
+        false
     }
 
     fn score(&self) -> usize {
@@ -102,6 +144,13 @@ impl Cell {
         match self {
             Cell::Ash => '.',
             Cell::Rocks => '#',
+        }
+    }
+
+    fn flip(&self) -> Self {
+        match self {
+            Cell::Ash => Cell::Rocks,
+            Cell::Rocks => Cell::Ash,
         }
     }
 }
