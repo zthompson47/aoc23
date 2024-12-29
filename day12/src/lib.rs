@@ -105,7 +105,6 @@ fn partition(tokens: usize, buckets: usize, context: &Context<'_>) -> VecDeque<V
     result.into_iter().flatten().collect()
 }
 
-#[allow(unused)]
 pub enum Part {
     One,
     Two,
@@ -113,7 +112,7 @@ pub enum Part {
 
 pub fn run(part: Part) -> Vec<usize> {
     let cache = Arc::new(Mutex::new(HashMap::new()));
-    let rows = include_str!("input.txt")
+    let rows = include_str!("input.orig")
         .lines()
         .fold(Vec::new(), |mut acc, row| {
             let mut split = row.split_ascii_whitespace();
@@ -181,6 +180,7 @@ pub fn run(part: Part) -> Vec<usize> {
                 row_count += 1;
             }
         }
+        println!("{row_count} {} {} {}", row.space, row.groups.len(), row.string);
         result.push(row_count);
     }
 
@@ -277,8 +277,8 @@ impl PipeRow {
 }
 
 #[allow(unused)]
-fn part1() -> usize {
-    let rows = include_str!("input.txt")
+pub fn part1() -> usize {
+    let rows = include_str!("input.orig")
         .lines()
         .fold(Vec::new(), |mut acc, row| {
             let mut split = row.split_ascii_whitespace();
