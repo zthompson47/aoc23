@@ -4,20 +4,13 @@ fn main() {
     let mut mirrors = input();
     let mut score = 0;
     for mirror in mirrors.iter_mut() {
-        println!(
-            "rows: {}, columns: {}",
-            mirror.rows.len(),
-            mirror.columns.len()
-        );
         mirror.calculate_symmetry(false);
         score += mirror.score();
-        println!("{mirror}");
     }
 
     println!("Part 1: {}", score);
 
     let mut score = 0;
-    //let mut mirrors = input();
     'mirrors: for mirror in mirrors.iter_mut() {
         for row in 0..mirror.rows.len() {
             for column in 0..mirror.columns.len() {
@@ -26,9 +19,7 @@ fn main() {
                 mirror.columns[column][row] = mirror.columns[column][row].flip();
 
                 if mirror.calculate_symmetry(true) {
-                    println!("-----> row:{row} column:{column}");
                     score += mirror.score();
-                    println!("{mirror}");
                     continue 'mirrors;
                 }
 
@@ -80,14 +71,12 @@ impl Mirror {
     /// Assume there is a unique line of symmetry for each mirror,
     /// or there is no symmetry.
     fn calculate_symmetry(&mut self, replace: bool) -> bool {
-        println!("------------calc");
         'rows: for i in 1..self.rows.len() {
             for j in 1..i.min(self.rows.len() - i) + 1 {
                 if self.rows[i - j] != self.rows[i - 1 + j] {
                     continue 'rows;
                 }
             }
-            println!("__row_{i}____replace:{replace}, self.symmetry:{:?}", self.symmetry);
             if replace && self.symmetry == Symmetry::Row(i) {
                 continue 'rows;
             } else {
@@ -101,7 +90,6 @@ impl Mirror {
                     continue 'columns;
                 }
             }
-            println!("__col_____replace:{replace}, self.symmetry:{:?}", self.symmetry);
             if replace && self.symmetry == Symmetry::Column(i) {
                 continue 'columns;
             } else {
