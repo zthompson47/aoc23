@@ -2,14 +2,29 @@ use aoc23::{Direction, Grid, Position};
 
 fn main() {
     let grid: Grid<Cell> = Grid::from(include_str!("input.txt"));
-    let mut visited: Visited = vec![vec![Vec::new(); grid.dim().r]; grid.dim().c];
 
+    println!("Part 1: {}", run(Position::new(0, 0), Direction::E, &grid));
+
+    let mut max_score = 0;
+    for r in 0..grid.dim().r {
+        max_score = max_score.max(run(Position::new(r, 0), Direction::E, &grid));
+        max_score = max_score.max(run(Position::new(r, grid.dim().c - 1), Direction::W, &grid));
+    }
+    for c in 0..grid.dim().c {
+        max_score = max_score.max(run(Position::new(0, c), Direction::S, &grid));
+        max_score = max_score.max(run(Position::new(grid.dim().r - 1, c), Direction::N, &grid));
+    }
+    println!("Part 2: {}", max_score);
+}
+
+fn run(start: Position, direction: Direction, grid: &Grid<Cell>) -> usize {
+    let mut visited: Visited = vec![vec![Vec::new(); grid.dim().r]; grid.dim().c];
     let mut beams: Vec<Beam> = vec![Beam {
-        position: Position::new(0, 0),
-        direction: Direction::E,
+        position: start,
+        direction,
         is_active: true,
     }];
-    visited[0][0].push(Direction::E);
+    visited[start.r][start.c].push(direction);
 
     while !beams
         .iter()
@@ -19,7 +34,7 @@ fn main() {
     {
         let mut new_beams = Vec::new();
         for beam in beams.iter_mut().filter(|x| x.is_active) {
-            if let Some(generated) = beam.step(&grid, &mut visited) {
+            if let Some(generated) = beam.step(grid, &mut visited) {
                 new_beams.push(generated);
             }
         }
@@ -27,65 +42,8 @@ fn main() {
             beams.push(new_beam);
         }
     }
-
-    //display_visited_grid(&grid, &visited);
-
-    println!(
-        "Part 1: {}",
-        visited.iter().flatten().filter(|x| !x.is_empty()).count()
-    );
-}
-
-#[allow(unused)]
-fn display_visited_grid(grid: &Grid<Cell>, visited: &Visited) {
-    use colored::Colorize;
-    let mut count = 0;
-    for r in 0..visited.len() {
-        for c in 0..visited[0].len() {
-            if visited[r][c].is_empty() {
-                print!("{}", char::from(&grid.cell(Position { r, c })));
-            } else if visited[r][c].len() > 2 {
-                count += 1;
-                print!(
-                    "{}",
-                    char::from(&grid.cell(Position { r, c }))
-                        .to_string()
-                        .as_str()
-                        .purple()
-                        .reversed()
-                );
-            } else if visited[r][c].len() > 1 {
-                count += 1;
-                print!(
-                    "{}",
-                    char::from(&grid.cell(Position { r, c }))
-                        .to_string()
-                        .as_str()
-                        .green()
-                        .reversed()
-                );
-            } else if !visited[r][c].is_empty() {
-                count += 1;
-                let cell = match visited[r][c][0] {
-                    Direction::N => '^',
-                    Direction::S => 'v',
-                    Direction::E => '>',
-                    Direction::W => '<',
-                };
-                print!(
-                    "{}",
-                    //cell
-                    char::from(&grid.cell(Position { r, c }))
-                        .to_string()
-                        .as_str()
-                        .red()
-                        .reversed()
-                );
-            }
-        }
-        println!();
-    }
-    println!("=========================={count}====================================");
+    //display_visited_grid(grid, &visited);
+    visited.iter().flatten().filter(|x| !x.is_empty()).count()
 }
 
 type Visited = Vec<Vec<Vec<Direction>>>;
@@ -207,4 +165,56 @@ impl From<&Cell> for char {
             Cell::SplitterHorizontal => '-',
         }
     }
+}
+
+#[allow(unused)]
+fn display_visited_grid(grid: &Grid<Cell>, visited: &Visited) {
+    use colored::Colorize;
+    let mut count = 0;
+    for r in 0..visited.len() {
+        for c in 0..visited[0].len() {
+            if visited[r][c].is_empty() {
+                print!("{}", char::from(&grid.cell(Position { r, c })));
+            } else if visited[r][c].len() > 2 {
+                count += 1;
+                print!(
+                    "{}",
+                    char::from(&grid.cell(Position { r, c }))
+                        .to_string()
+                        .as_str()
+                        .purple()
+                        .reversed()
+                );
+            } else if visited[r][c].len() > 1 {
+                count += 1;
+                print!(
+                    "{}",
+                    char::from(&grid.cell(Position { r, c }))
+                        .to_string()
+                        .as_str()
+                        .green()
+                        .reversed()
+                );
+            } else if !visited[r][c].is_empty() {
+                count += 1;
+                let cell = match visited[r][c][0] {
+                    Direction::N => '^',
+                    Direction::S => 'v',
+                    Direction::E => '>',
+                    Direction::W => '<',
+                };
+                print!(
+                    "{}",
+                    //cell
+                    char::from(&grid.cell(Position { r, c }))
+                        .to_string()
+                        .as_str()
+                        .red()
+                        .reversed()
+                );
+            }
+        }
+        println!();
+    }
+    println!("=========================={count}====================================");
 }
