@@ -3,10 +3,6 @@ use aoc23::{Direction, Grid, Position};
 fn main() {
     let grid: Grid<Cell> = Grid::from(include_str!("input.txt"));
     let mut visited: Visited = vec![vec![Vec::new(); grid.dim().r]; grid.dim().c];
-    //println!("{grid}");
-
-    //println!("grid dim r:{} c:{}", grid.dim().r, grid.dim().c);
-    //println!("visited dim r:{} c:{}", visited.len(), visited[0].len());
 
     let mut beams: Vec<Beam> = vec![Beam {
         position: Position::new(0, 0),
@@ -30,10 +26,6 @@ fn main() {
         for new_beam in new_beams {
             beams.push(new_beam);
         }
-        //println!(
-        //    "{:?}",
-        //    beams.iter().filter(|x| x.is_active).collect::<Vec<_>>()
-        //);
     }
 
     /*
@@ -65,7 +57,7 @@ fn main() {
                 );
             } else if visited[r][c].len() > 0 {
                 count += 1;
-                let c = match visited[r][c][0] {
+                let cell = match visited[r][c][0] {
                     Direction::N => '^',
                     Direction::S => 'v',
                     Direction::E => '>',
@@ -73,7 +65,8 @@ fn main() {
                 };
                 print!(
                     "{}",
-                    c //char::from(&grid.cell(Position { r, c }))
+                    //cell
+                    char::from(&grid.cell(Position { r, c }))
                         .to_string()
                         .as_str()
                         .red()
@@ -103,6 +96,7 @@ struct Beam {
 
 impl Beam {
     fn step(&mut self, grid: &Grid<Cell>, visited: &mut Visited) -> Option<Beam> {
+        assert!(self.is_active);
         let mut extra_beam: Option<Beam> = None;
 
         match grid.cell(self.position) {

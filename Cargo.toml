@@ -20,3 +20,4 @@ name = "day16"
 path = "day16/main.rs"
 
 [dependencies]
+colored = "2.2.0"
