@@ -28,10 +28,64 @@ fn main() {
         }
     }
 
+    //display_visited_grid(&grid, &visited);
+
     println!(
         "Part 1: {}",
         visited.iter().flatten().filter(|x| !x.is_empty()).count()
     );
+}
+
+#[allow(unused)]
+fn display_visited_grid(grid: &Grid<Cell>, visited: &Visited) {
+    use colored::Colorize;
+    let mut count = 0;
+    for r in 0..visited.len() {
+        for c in 0..visited[0].len() {
+            if visited[r][c].is_empty() {
+                print!("{}", char::from(&grid.cell(Position { r, c })));
+            } else if visited[r][c].len() > 2 {
+                count += 1;
+                print!(
+                    "{}",
+                    char::from(&grid.cell(Position { r, c }))
+                        .to_string()
+                        .as_str()
+                        .purple()
+                        .reversed()
+                );
+            } else if visited[r][c].len() > 1 {
+                count += 1;
+                print!(
+                    "{}",
+                    char::from(&grid.cell(Position { r, c }))
+                        .to_string()
+                        .as_str()
+                        .green()
+                        .reversed()
+                );
+            } else if !visited[r][c].is_empty() {
+                count += 1;
+                let cell = match visited[r][c][0] {
+                    Direction::N => '^',
+                    Direction::S => 'v',
+                    Direction::E => '>',
+                    Direction::W => '<',
+                };
+                print!(
+                    "{}",
+                    //cell
+                    char::from(&grid.cell(Position { r, c }))
+                        .to_string()
+                        .as_str()
+                        .red()
+                        .reversed()
+                );
+            }
+        }
+        println!();
+    }
+    println!("=========================={count}====================================");
 }
 
 type Visited = Vec<Vec<Vec<Direction>>>;
