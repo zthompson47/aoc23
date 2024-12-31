@@ -38,6 +38,23 @@ impl Position {
         Position { r, c }
     }
 
+    pub fn steps<T>(&self, count: usize, direction: Direction, grid: &Grid<T>) -> Vec<Self>
+    where
+        T: Clone + Copy,
+    {
+        let mut result = Vec::new();
+        let mut start = *self;
+        for _ in 0..count {
+            if let Some(position) = start.step(direction, grid) {
+                result.push(position);
+                start = position;
+            } else {
+                break;
+            }
+        }
+        result
+    }
+
     pub fn step<T>(&self, direction: Direction, grid: &Grid<T>) -> Option<Self>
     where
         T: Clone + Copy,
@@ -130,6 +147,29 @@ pub enum Direction {
     E,
     S,
     W,
+}
+
+/*
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum Alignment {
+    Horizontal,
+    Vertical,
+}
+*/
+
+impl Direction {
+    pub fn all() -> [Self; 4] {
+        [Direction::N, Direction::E, Direction::S, Direction::W]
+    }
+
+    pub fn opposite(&self) -> Self {
+        match self {
+            Direction::N => Direction::S,
+            Direction::E => Direction::W,
+            Direction::S => Direction::N,
+            Direction::W => Direction::E,
+        }
+    }
 }
 
 #[cfg(test)]
