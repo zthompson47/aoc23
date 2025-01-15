@@ -1,14 +1,14 @@
 #[derive(Debug, Clone, PartialEq)]
 pub struct Grid<T>
 where
-    T: Clone + Copy,
+    T: Clone,
 {
     inner: Vec<Vec<T>>,
 }
 
 impl<T> Grid<T>
 where
-    T: Clone + Copy,
+    T: Clone,
 {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
@@ -22,15 +22,80 @@ where
         }
     }
 
-    pub fn cell(&self, position: Position) -> T {
-        self.inner[position.r][position.c]
+    pub fn cell(&self, position: Position) -> &T {
+        &self.inner[position.r][position.c]
+    }
+
+    pub fn cell_mut(&mut self, position: Position) -> &mut T {
+        &mut self.inner[position.r][position.c]
+    }
+
+    pub fn bottom_right(&self) -> Position {
+        Position {
+            r: self.dim().r - 1,
+            c: self.dim().c - 1,
+        }
+    }
+
+    pub fn top_left(&self) -> Position {
+        Position { r: 0, c: 0 }
+    }
+
+    pub fn print<R>(&self, map: impl Fn(Position, char) -> R)
+    where
+        R: std::fmt::Display,
+        char: for<'a> std::convert::From<&'a T>,
+    {
+        for r in 0..self.dim().r {
+            for c in 0..self.dim().c {
+                let p = Position::new(r, c);
+                print!("{}", map(p, char::from(self.cell(p))));
+            }
+            println!()
+        }
+    }
+
+    pub fn diagonals(&self) -> impl Iterator<Item = Vec<Position>> {
+        assert_eq!(self.dim().r, self.dim().c);
+        let size = self.dim().r;
+
+        let bottom_right = (1..size).map(move |i| {
+            let mut result = Vec::new();
+            for (i_row, i_column) in (size - i..size).rev().zip(size - i..size) {
+                let start = Position::new(i_row, i_column);
+                result.push(start);
+            }
+            result
+        });
+
+        let middle: Vec<Vec<Position>> = vec![(0..size)
+            .zip((0..size).rev())
+            .map(|(r, c)| Position { r, c })
+            .collect()];
+
+        let top_left = (1..size).rev().map(|i| {
+            let mut result = Vec::new();
+            for (i_row, i_column) in (0..i).zip((0..i).rev()) {
+                let start = Position::new(i_row, i_column);
+                result.push(start);
+            }
+            result
+        });
+
+        bottom_right.chain(middle).chain(top_left)
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Position {
     pub r: usize,
     pub c: usize,
+}
+
+impl std::fmt::Display for Position {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({:2}, {:2})", self.r, self.c)
+    }
 }
 
 impl Position {
@@ -40,7 +105,7 @@ impl Position {
 
     pub fn steps<T>(&self, count: usize, direction: Direction, grid: &Grid<T>) -> Vec<Self>
     where
-        T: Clone + Copy,
+        T: Clone,
     {
         let mut result = Vec::new();
         let mut start = *self;
@@ -57,7 +122,7 @@ impl Position {
 
     pub fn step<T>(&self, direction: Direction, grid: &Grid<T>) -> Option<Self>
     where
-        T: Clone + Copy,
+        T: Clone,
     {
         match direction {
             Direction::N => {
@@ -113,7 +178,7 @@ pub struct Dimensions {
 impl<T> std::fmt::Display for Grid<T>
 where
     char: for<'a> std::convert::From<&'a T>,
-    T: Clone + Copy,
+    T: Clone,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -131,7 +196,7 @@ where
 impl<T> From<&str> for Grid<T>
 where
     T: From<char>,
-    T: Clone + Copy,
+    T: Clone,
 {
     fn from(value: &str) -> Self {
         value.lines().fold(Grid::new(), |mut grid, row| {
@@ -141,7 +206,7 @@ where
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, Eq, Hash)]
 pub enum Direction {
     N,
     E,
@@ -149,13 +214,31 @@ pub enum Direction {
     W,
 }
 
-/*
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, Eq, Hash)]
 pub enum Alignment {
     Horizontal,
     Vertical,
 }
-*/
+
+impl Alignment {
+    pub fn all() -> [Self; 2] {
+        [Alignment::Horizontal, Alignment::Vertical]
+    }
+
+    pub fn directions(&self) -> [Direction; 2] {
+        match self {
+            Alignment::Horizontal => [Direction::E, Direction::W],
+            Alignment::Vertical => [Direction::S, Direction::N],
+        }
+    }
+
+    pub fn orthogonal(&self) -> Self {
+        match self {
+            Alignment::Horizontal => Alignment::Vertical,
+            Alignment::Vertical => Alignment::Horizontal,
+        }
+    }
+}
 
 impl Direction {
     pub fn all() -> [Self; 4] {
@@ -168,6 +251,20 @@ impl Direction {
             Direction::E => Direction::W,
             Direction::S => Direction::N,
             Direction::W => Direction::E,
+        }
+    }
+
+    pub fn orthogonal(&self) -> [Self; 2] {
+        match self {
+            Direction::N | Direction::S => [Direction::E, Direction::W],
+            Direction::E | Direction::W => [Direction::S, Direction::N],
+        }
+    }
+
+    pub fn alignment(&self) -> Alignment {
+        match self {
+            Direction::N | Direction::S => Alignment::Vertical,
+            Direction::E | Direction::W => Alignment::Horizontal,
         }
     }
 }
