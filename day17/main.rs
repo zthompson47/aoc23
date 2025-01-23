@@ -1,85 +1,97 @@
-#![allow(unused)]
 use std::{collections::HashMap, io::Write};
+
+use log::{debug, log_enabled, Level};
 
 use aoc23::{Alignment, Direction, Grid, Position};
 
 fn main() {
-    let grid = Grid::<Number>::from(include_str!("test.txt"));
-    //println!("{grid}");
+    env_logger::builder()
+        .format(|buf, record| writeln!(buf, "{}", record.args()))
+        .target(env_logger::Target::Stdout)
+        .init();
+    let mut grid = Grid::<Number>::from(include_str!("input.txt"));
+    println!("Part 1: {}", part1(&mut grid));
+}
 
-    let start = Position::new(0, 0);
-
-    let start_east = Corner {
-        position: start,
-        alignment: Alignment::Horizontal,
-    };
-    let start_south = Corner {
-        position: start,
-        alignment: Alignment::Vertical,
-    };
-
+fn part1(grid: &mut Grid<Number>) -> u32 {
     let east_path = Path {
-        positions: vec![],
-        corners: vec![start_east],
+        last_corner: Corner {
+            position: Position::new(0, 0),
+            alignment: Alignment::Horizontal,
+        },
+        inner_heat: 0,
         step_heat: 0,
     };
     let south_path = Path {
-        positions: vec![],
-        corners: vec![start_south],
+        last_corner: Corner {
+            position: Position::new(0, 0),
+            alignment: Alignment::Vertical,
+        },
+        inner_heat: 0,
         step_heat: 0,
     };
 
-    /*
     let mut cache = HashMap::new();
-    let east_solution = min_path(&east_path, grid.bottom_right(), None, &grid, &mut cache);
-    //println!("{east_solution:?}");
+    find_min_path(east_path, grid, &mut cache);
+    find_min_path(south_path, grid, &mut cache);
 
-    let mut cache = HashMap::new();
-    let south_solution = min_path(&south_path, grid.bottom_right(), None, &grid, &mut cache);
-    println!("{east_solution:?} {south_solution:?}");
-    */
+    let cache_vertical = cache.get(&Corner {
+        position: grid.bottom_right(),
+        alignment: Alignment::Vertical,
+    });
+    let cache_horizontal = cache.get(&Corner {
+        position: grid.bottom_right(),
+        alignment: Alignment::Horizontal,
+    });
 
-    //let size = grid.dim().r;
+    *cache_vertical.min(cache_horizontal).unwrap()
+}
 
-    /*
-    // ----------------- LATEST ---------------
-    let mut cache: HashMap<Corner, u32> = HashMap::new();
-    for diagonal in grid.diagonals() {
-        for alignment in Alignment::all() {
-            for position in diagonal.iter() {
-                let path = Path {
-                    positions: vec![],
-                    corners: vec![Corner {
-                        position: *position,
-                        alignment,
-                    }],
-                    step_heat: 0,
-                };
-                let result =
-                    min_path(&path, grid.bottom_right(), None, None, &grid, &mut cache).unwrap();
-            }
+fn min_solution_heat(grid: &Grid<Number>, cache: &HashMap<Corner, u32>) -> Option<u32> {
+    let end_vertical = Corner {
+        position: grid.bottom_right(),
+        alignment: Alignment::Vertical,
+    };
+    let end_horizontal = Corner {
+        position: grid.bottom_right(),
+        alignment: Alignment::Horizontal,
+    };
+    cache
+        .get(&end_vertical)
+        .min(cache.get(&end_horizontal))
+        .copied()
+}
+
+fn find_min_path(start: Path, grid: &Grid<Number>, cache: &mut HashMap<Corner, u32>) {
+    // Stop paths with more heat than current solution.
+    if let Some(min_heat) = min_solution_heat(grid, cache) {
+        if start.inner_heat > min_heat {
+            return;
         }
     }
-    println!("{:?} {:?}", cache.get(&start_east), cache.get(&start_south));
-    println!(
-        "{:?} {:?}",
-        cache.get(&Corner {
-            position: Position { r: 3, c: 4 },
-            alignment: Alignment::Vertical
-        }),
-        cache.get(&Corner {
-            position: Position { r: 3, c: 4 },
-            alignment: Alignment::Horizontal
-        })
-    );
-    // ----------------- LATEST ---------------
-    */
 
+    // Stop paths with more heat than cached heat on this corner.
+    if let Some(cached_min) = cache.get(&start.last_corner) {
+        if start.inner_heat >= *cached_min {
+            return;
+        }
+    }
+    cache.insert(start.last_corner, start.inner_heat);
+
+    if start.last_corner.position == grid.bottom_right() {
+        debug!("got solution heat: {}", start.inner_heat);
+    }
+
+    for path in start.step(3, grid) {
+        find_min_path(path, grid, cache);
+    }
+}
+
+fn part1_diagonals(grid: &Grid<Number>) -> u32 {
     let cell_count = grid.dim().r as f32 * grid.dim().c as f32;
     let mut completed_cells = 0f32;
 
     let mut cache: HashMap<Corner, u32> = HashMap::new();
-    let mut sub_cache: HashMap<Corner, u32> = HashMap::new();
     for alignment in Alignment::all() {
         cache.insert(
             Corner {
@@ -94,269 +106,239 @@ fn main() {
             .iter()
             .flat_map(|x| [(x, Alignment::Vertical), (x, Alignment::Horizontal)])
         {
-            /*
-            println!("FROM: {from:?} {from_al:?}");
-
-            grid.print(|position: Position, c: char| {
-                if cache.keys().any(|x| x.position == position) {
-                    "X".into()
-                } else {
-                    c.to_string()
+            debug!("___________________________________________________");
+            if log_enabled!(Level::Debug) {
+                for alignment in Alignment::all() {
+                    println!("====={alignment:?}====");
+                    grid.print(|position: Position, c: char| {
+                        if let Some(x) = cache.get(&Corner {
+                            position,
+                            alignment,
+                        }) {
+                            let x = x + grid.cell(position).inner;
+                            format!("{:<5}", format!("[{x}]"))
+                        } else if position == *from {
+                            format!("{:<5}", format!("-{c}-"))
+                        } else {
+                            format!("{:<5}", format!(" {c} "))
+                        }
+                    });
                 }
-            });
-            println!();
-            */
+                println!();
+            }
 
             let mut from_min = match from_al {
                 Alignment::Horizontal => {
-                    if let Some(cell_to_right) = from.step(Direction::E, &grid) {
-                        let mut min = 0;
-                        min += *cache
-                            .get(&Corner {
-                                position: cell_to_right,
-                                alignment: Alignment::Vertical,
-                            })
-                            .unwrap();
-                        min += grid.cell(from.step(Direction::E, &grid).unwrap()).inner;
+                    if let Some(min) = min_cached_heat_from(*from, Direction::E, 3, grid, &cache) {
                         min
                     } else {
                         let mut min = 0;
-                        min += grid.cell(from.step(Direction::W, &grid).unwrap()).inner;
+                        min += grid.cell(from.step(Direction::W, grid).unwrap()).inner;
                         min += grid
                             .cell(
-                                from.step(Direction::W, &grid)
+                                from.step(Direction::W, grid)
                                     .unwrap()
-                                    .step(Direction::S, &grid)
+                                    .step(Direction::S, grid)
                                     .unwrap(),
                             )
                             .inner;
-                        min += grid.cell(from.step(Direction::S, &grid).unwrap()).inner;
+                        min += grid.cell(from.step(Direction::S, grid).unwrap()).inner;
                         min += *cache
                             .get(&Corner {
-                                position: from.step(Direction::S, &grid).unwrap(),
+                                position: from.step(Direction::S, grid).unwrap(),
                                 alignment: Alignment::Vertical,
                             })
                             .unwrap();
-                        //println!("/////H//////>>  return min {min}");
                         min
                     }
                 }
                 Alignment::Vertical => {
-                    if let Some(cell_below) = from.step(Direction::S, &grid) {
-                        let mut min = 0;
-                        min += *cache
-                            .get(&Corner {
-                                position: cell_below,
-                                alignment: Alignment::Horizontal,
-                            })
-                            .unwrap();
-                        min += grid.cell(from.step(Direction::S, &grid).unwrap()).inner;
+                    if let Some(min) = min_cached_heat_from(*from, Direction::S, 3, grid, &cache) {
                         min
                     } else {
                         let mut min = 0;
-                        min += grid.cell(from.step(Direction::N, &grid).unwrap()).inner;
+                        min += grid.cell(from.step(Direction::N, grid).unwrap()).inner;
                         min += grid
                             .cell(
-                                from.step(Direction::N, &grid)
+                                from.step(Direction::N, grid)
                                     .unwrap()
-                                    .step(Direction::E, &grid)
+                                    .step(Direction::E, grid)
                                     .unwrap(),
                             )
                             .inner;
-                        min += grid.cell(from.step(Direction::E, &grid).unwrap()).inner;
+                        min += grid.cell(from.step(Direction::E, grid).unwrap()).inner;
                         min += *cache
                             .get(&Corner {
-                                position: from.step(Direction::E, &grid).unwrap(),
+                                position: from.step(Direction::E, grid).unwrap(),
                                 alignment: Alignment::Horizontal,
                             })
                             .unwrap();
-                        //println!("/////V//////>>  return min {min}");
                         min
                     }
                 }
             };
-            //println!("=0000000=======>>>> {from_min}");
+            debug!("FROM: {from:?} {from_al:?}");
+            debug!("from_min: {from_min}");
+
+            let mut to_min: Option<u32> = None;
+
+            let cache_wall = cache.clone();
             for (to, to_al) in bottom
                 .iter()
                 .flat_map(|x| [(x, Alignment::Vertical), (x, Alignment::Horizontal)])
             {
-                //println!("TO: {to:?} {to_al:?}");
-                let mut to_min = *cache
+                debug!("TO: {to:?}");
+
+                let mut cached_min = *cache
                     .get(&Corner {
                         position: *to,
                         alignment: to_al,
                     })
                     .unwrap();
-                let min_heat_to = from.r.abs_diff(to.r) + from.c.abs_diff(to.c);
-                to_min += min_heat_to as u32;
+                let min_heat_to = (from.r.abs_diff(to.r) + from.c.abs_diff(to.c) - 1) as u32;
 
-                if to_min < from_min {
-                    let allowed_heat = from_min - to_min;
-                    //if allowed_heat > 100 {
-                    //    println!("=====>>>>>> ALLOWED HEAT {allowed_heat}");
-                    //}
-                    std::io::stdout().flush();
-                    //sub_cache.clear();
-                    if let Some(min) = min_path(
-                        &Path {
-                            positions: vec![],
-                            corners: vec![Corner {
+                if cached_min + min_heat_to < from_min {
+                    let allowed_heat = from_min - cached_min;
+                    debug!("ALOWED_HEAT: {allowed_heat}");
+
+                    if let Some(possible_min) = min_cached_path_through(
+                        Path {
+                            inner_heat: 0,
+                            last_corner: Corner {
                                 position: *from,
                                 alignment: from_al,
-                            }],
+                            },
                             step_heat: 0,
                         },
                         *to,
-                        Some(to_al),
+                        //grid.bottom_right(),
                         Some((0, allowed_heat)),
                         &grid,
-                        //&mut sub_cache, // ???
-                        &mut cache, // ???
+                        &cache_wall,
                     ) {
-                        //println!("-- min_path returned {min}");
-                        from_min = from_min.min(min);
+                        to_min = Some(match to_min {
+                            Some(to_min) => to_min.min(possible_min),
+                            None => possible_min,
+                        });
+                        //println!("=====>>>>>>>>  !! to_min:{to_min:?}");
                     }
                 }
-
-                //println!("top: {from:?} {from_al:?}");
-                //println!("destination: {to:?} {to_al:?}");
             }
-            //println!("===1111111=====>>>> {from_min}");
-            completed_cells += 0.5;
-            //println!("{:3.2} ALLOW", completed_cells * 100f32 / cell_count);
+
+            let to_min = match to_min {
+                Some(to_min) => to_min.min(from_min),
+                None => from_min,
+            };
+
             cache.insert(
                 Corner {
                     position: *from,
                     alignment: from_al,
                 },
-                from_min,
+                to_min,
             );
-        }
-    }
-    println!("{:?} {:?}", cache.get(&start_east), cache.get(&start_south));
 
-    /*
-    println!(
-        "{:?} {:?}",
-        cache.get(&Corner {
-            position: Position { r: 0, c: 1 },
-            alignment: Alignment::Vertical
-        }),
-        cache.get(&Corner {
-            position: Position { r: 0, c: 1 },
-            alignment: Alignment::Horizontal
-        })
-    );
-    */
-
-    /*
-    for i in 0..size {
-        for (i_row, i_column) in (size - i..size).rev().zip(size - i..size) {
-            println!("{i_row},{i_column}");
-
-            for alignment in Alignment::all() {
-                let start = Position::new(i_row, i_column);
-                let path = Path {
-                    positions: vec![],
-                    corners: vec![Corner {
-                        position: start,
-                        alignment,
-                    }],
-                    step_heat: 0,
-                };
-                let result = min_path(&path, grid.bottom_right(), None, &grid, &mut cache).unwrap();
-                //println!("000 {start} {} {:?}", result, alignment);
-            }
+            completed_cells += 0.5;
+            println!("{:3.2}% ALLOW", completed_cells * 100f32 / cell_count);
         }
     }
 
-    for i in (0..size).rev() {
-        for (i_row, i_column) in (0..i).zip((0..i).rev()) {
-            println!("{i_row},{i_column}");
+    let start = Position::new(0, 0);
+    let start_east = Corner {
+        position: start,
+        alignment: Alignment::Horizontal,
+    };
+    let start_south = Corner {
+        position: start,
+        alignment: Alignment::Vertical,
+    };
 
-            for alignment in Alignment::all() {
-                let start = Position::new(i_row, i_column);
-                let path = Path {
-                    positions: vec![],
-                    corners: vec![Corner {
-                        position: start,
-                        alignment,
-                    }],
-                    step_heat: 0,
-                };
-                let result = min_path(&path, grid.bottom_right(), None, &grid, &mut cache).unwrap();
-                //println!("000 {start} {} {:?}", result, alignment);
+    *cache.get(&start_east).min(cache.get(&start_south)).unwrap()
+}
+
+fn min_cached_heat_from(
+    from: Position,
+    direction: Direction,
+    steps: usize,
+    grid: &Grid<Number>,
+    cache: &HashMap<Corner, u32>,
+) -> Option<u32> {
+    let mut result: Option<u32> = None;
+    let mut step_heat = 0;
+    for _ in 0..steps {
+        if let Some(position) = from.step(direction, grid) {
+            if let Some(cached_heat) = cache.get(&Corner {
+                position,
+                alignment: direction.alignment().orthogonal(),
+            }) {
+                step_heat += grid.cell(position).inner;
+                result = Some(match result {
+                    Some(x) => x.min(cached_heat + step_heat),
+                    None => cached_heat + step_heat,
+                });
             }
+        } else {
+            break;
         }
     }
-    */
+    result
+}
 
-    /*
-    // Assume square grid.
-    let size = grid.dim().r;
-    let mut cache = HashMap::new();
-    for i in (0..size).rev() {
-        for x in (i..size).rev() {
-            let i_row = x;
-            let i_column = i;
-
-            for alignment in Alignment::all() {
-                let start = Position::new(i_row, i_column);
-                let path = Path {
-                    positions: vec![],
-                    corners: vec![Corner {
-                        position: start,
-                        alignment,
-                    }],
-                    step_heat: 0,
-                };
-                let result = min_path(&path, None, &grid, &mut cache).unwrap();
-                //println!("000 {start} {} {:?}", result, alignment);
-            }
-
-            let i_row = i;
-            let i_column = x;
-
-            for alignment in Alignment::all() {
-                let start = Position::new(i_row, i_column);
-                let path = Path {
-                    positions: vec![],
-                    corners: vec![Corner {
-                        position: start,
-                        alignment,
-                    }],
-                    step_heat: 0,
-                };
-                let result = min_path(&path, None, &grid, &mut cache).unwrap();
-                //println!("000 {start} {} {:?}", result, alignment);
-            }
-        }
+fn min_cached_path_through(
+    start: Path,
+    end: Position,
+    max_heat: Option<(u32, u32)>,
+    grid: &Grid<Number>,
+    cache: &HashMap<Corner, u32>,
+) -> Option<u32> {
+    //if cache.get(&start.last_corner()).is_some() {
+    //    return None;
+    //}
+    if let Some(val) = cache.get(&start.last_corner()) {
+        return Some(*val);
     }
-    println!("{:?} {:?}", cache.get(&start_east), cache.get(&start_south));
-    */
 
-    /*
-    let mut cache = HashMap::new();
-    for i_row in (0..grid.dim().r).rev() {
-        for i_column in (0..grid.dim().c).rev() {
-            for alignment in Alignment::all() {
-                let start = Position::new(i_row, i_column);
-                let path = Path {
-                    positions: vec![],
-                    corners: vec![Corner {
-                        position: start,
-                        alignment,
-                    }],
-                    step_heat: 0,
-                };
-                let result = min_path(&path, None, &grid, &mut cache).unwrap();
-                //println!("000 {start} {} {:?}", result, alignment);
-            }
+    if let Some((start_heat, max_heat)) = max_heat {
+        let min_heat_to = start.last_corner().position.r.abs_diff(end.r)
+            + start.last_corner().position.c.abs_diff(end.c);
+        if start.heat(grid) - start_heat + min_heat_to as u32 > max_heat {
+            debug!(
+                "TOO MUCH HEAT start.heat:{} - start_heat:{} + min_heat_to:{} > max_heat:{}",
+                start.heat(grid),
+                start_heat,
+                min_heat_to,
+                max_heat
+            );
+            return None;
         }
     }
 
-    println!("{:?} {:?}", cache.get(&start_east), cache.get(&start_south));
-    */
+    let mut min_heat: Option<u32> = None;
+    let mut recursion_max_heat = max_heat;
+    let start_heat = start.heat(grid);
+
+    for path in start.step(3, grid) {
+        if max_heat.is_none() && min_heat.is_some() {
+            recursion_max_heat = Some((
+                start_heat + path.step_heat - grid.cell(path.last_corner().position).inner,
+                min_heat.unwrap(),
+            ));
+        }
+        // Search the sub-path and keep track of minimum sub-search.
+        let path_step_heat = path.step_heat;
+        if let Some(mut solution_heat) =
+            min_cached_path_through(path, end, recursion_max_heat, grid, cache)
+        {
+            solution_heat += path_step_heat;
+            min_heat = Some(match min_heat {
+                Some(x) => x.min(solution_heat),
+                None => solution_heat,
+            });
+        }
+    }
+
+    //println!("min_path RETURN");
+    min_heat
 }
 
 struct RecursionPath {
@@ -365,7 +347,7 @@ struct RecursionPath {
 }
 
 fn min_path(
-    start: &Path,
+    start: Path,
     end: Position,
     end_alignment: Option<Alignment>,
     max_heat: Option<(u32, u32)>,
@@ -402,16 +384,26 @@ fn min_path(
         //println!("{} - {} > {}", start.heat(grid), start_heat, max_heat);
         let min_heat_to = start.last_corner().position.r.abs_diff(end.r)
             + start.last_corner().position.c.abs_diff(end.c);
-        if start.heat(grid) - start_heat + min_heat_to as u32 > max_heat {
-            //println!("TOO MUCH HEAT");
+
+        //if start.heat(grid) - start_heat + min_heat_to as u32 > max_heat {
+        if start.heat(grid) - start_heat > max_heat {
+            debug!(
+                "TOO MUCH HEAT start.heat:{} - start_heat:{} + min_heat_to:{} > max_heat:{}",
+                start.heat(grid),
+                start_heat,
+                min_heat_to,
+                max_heat
+            );
             return None;
         }
     }
 
+    /*
     if start.is_loop() {
         //println!("loop");
         return None;
     }
+    */
 
     if start.last_corner().position == end {
         //println!("--> solution {}", start.heat(grid));
@@ -433,7 +425,10 @@ fn min_path(
         println!("{p}");
     }
     */
-    for path in start.step(3, grid).iter() {
+    let start_last_corner = start.last_corner();
+    let start_heat = start.heat(grid);
+    for path in start.step(3, grid) {
+        //.iter() {
         // Try to impose a heat limit on sub-searches.
         if max_heat.is_none() && min_heat.is_some() {
             /*
@@ -446,15 +441,18 @@ fn min_path(
             */
             //recursion_max_heat = Some((start.heat(grid) + path.step_heat, min_heat.unwrap()));
             recursion_max_heat = Some((
-                start.heat(grid) + path.step_heat - grid.cell(path.last_corner().position).inner,
+                //start.heat(grid) + path.step_heat - grid.cell(path.last_corner().position).inner,
+                start_heat + path.step_heat - grid.cell(path.last_corner().position).inner,
                 min_heat.unwrap(),
             ));
         }
         // Search the sub-path and keep track of minimum sub-search.
+        let path_step_heat = path.step_heat;
         if let Some(mut solution_heat) =
             min_path(path, end, end_alignment, recursion_max_heat, grid, cache)
         {
-            solution_heat += path.step_heat;
+            //solution_heat += path.step_heat;
+            solution_heat += path_step_heat;
             min_heat = Some(match min_heat {
                 Some(x) => x.min(solution_heat),
                 None => solution_heat,
@@ -465,9 +463,11 @@ fn min_path(
     if max_heat.is_none() {
         if let Some(min_heat) = min_heat {
             cache
-                .entry(start.last_corner())
+                //.entry(start.last_corner())
+                .entry(start_last_corner)
                 .and_modify(|x| *x = (*x).min(min_heat))
                 .or_insert(min_heat);
+            /*
             grid.print(|position: Position, c: char| {
                 if cache.keys().any(|x| x.position == position) {
                     "X".into()
@@ -477,14 +477,18 @@ fn min_path(
                     c.to_string()
                 }
             });
+            */
+            /*
             println!(
                 "caching {} for {},{} {:?}",
-                cache.get(&start.last_corner()).unwrap(),
-                start.last_corner().position.r,
-                start.last_corner().position.c,
-                start.last_corner().alignment,
+                //cache.get(&start.last_corner()).unwrap(),
+                cache.get(&start_last_corner).unwrap(),
+                start_last_corner.position.r,
+                start_last_corner.position.c,
+                start_last_corner.alignment,
             );
             println!();
+            */
         }
     }
 
@@ -500,64 +504,76 @@ struct Corner {
 
 #[derive(Debug)]
 struct Path {
-    positions: Vec<Position>,
-    corners: Vec<Corner>,
+    last_corner: Corner,
     step_heat: u32,
-    //inner_heat: u32,
+    inner_heat: u32,
 }
 
 impl Path {
     fn heat(&self, grid: &Grid<Number>) -> u32 {
-        self.positions.iter().map(|x| grid.cell(*x).inner).sum()
-    }
-
-    fn is_loop(&self) -> bool {
-        self.corners[0..self.corners.len() - 1].contains(&self.last_corner())
+        self.inner_heat
     }
 
     fn last_corner(&self) -> Corner {
-        *self.corners.last().unwrap()
+        self.last_corner
     }
 
-    fn step(&self, count: usize, grid: &Grid<Number>) -> Vec<Path> {
-        let mut new_paths = Vec::new();
-        for direction in self.last_corner().alignment.directions() {
-            let mut step_positions: Vec<Position> = Vec::new();
-            for position in self.last_corner().position.steps(count, direction, grid) {
-                step_positions.push(position);
-                let mut positions = self.positions.clone();
-                positions.extend(step_positions.iter());
+    fn step(self, count: usize, grid: &Grid<Number>) -> impl Iterator<Item = Path> + use<'_> {
+        let directions = self.last_corner().alignment.directions();
+        let alignment = self.last_corner().alignment.orthogonal();
 
-                let mut corners = self.corners.clone();
+        let inner_heat = self.inner_heat;
+        let mut step_heat = 0;
+        let first = self
+            .last_corner()
+            .position
+            .steps(count, directions[0], grid)
+            .into_iter()
+            .map(move |position| {
+                step_heat += grid.cell(position).inner;
                 let step_corner = Corner {
                     position,
-                    alignment: self.last_corner().alignment.orthogonal(),
+                    //alignment: self.last_corner().alignment.orthogonal(),
+                    alignment,
                 };
-                corners.push(step_corner);
+                Path {
+                    inner_heat: inner_heat + step_heat,
+                    last_corner: step_corner,
+                    step_heat,
+                }
+            });
 
-                new_paths.push(Path {
-                    positions,
-                    corners,
-                    step_heat: step_positions.iter().map(|x| grid.cell(*x).inner).sum(),
-                });
-            }
-        }
-        new_paths
+        let inner_heat = self.inner_heat;
+        let mut step_heat = 0;
+        let second = self
+            .last_corner()
+            .position
+            .steps(count, directions[1], grid)
+            .into_iter()
+            .map(move |position| {
+                step_heat += grid.cell(position).inner;
+                let step_corner = Corner {
+                    position,
+                    //alignment: self.last_corner().alignment.orthogonal(),
+                    alignment,
+                };
+                Path {
+                    inner_heat: inner_heat + step_heat,
+                    last_corner: step_corner,
+                    step_heat,
+                }
+            });
+
+        first.chain(second)
     }
 }
 
 impl std::fmt::Display for Path {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Path:");
-        writeln!(f, "  step_heat: {}", self.step_heat);
-        writeln!(f, "  Positions:");
-        for p in &self.positions {
-            writeln!(f, "    {p}");
-        }
-        writeln!(f, "  Corners:");
-        for c in &self.corners {
-            writeln!(f, "    {} {:?}", c.position, c.alignment);
-        }
+        writeln!(f, "Path:")?;
+        writeln!(f, "  step_heat: {}", self.step_heat)?;
+        writeln!(f, "  heat: {}", self.inner_heat)?;
+        writeln!(f, "  last_corner: {:?}", self.last_corner)?;
         writeln!(f)
     }
 }
@@ -568,6 +584,24 @@ struct Number {
     min_vertical: Option<u32>,
     min_horizontal: Option<u32>,
 }
+
+/*
+impl Number {
+    fn cached_min(&self, alignment: Alignment) -> Option<u32> {
+        match alignment {
+            Alignment::Horizontal => self.min_horizontal,
+            Alignment::Vertical => self.min_vertical,
+        }
+    }
+
+    fn cache_min(&mut self, alignment: Alignment, min: u32) {
+        match alignment {
+            Alignment::Horizontal => self.min_horizontal = Some(min),
+            Alignment::Vertical => self.min_vertical = Some(min),
+        }
+    }
+}
+*/
 
 impl From<char> for Number {
     fn from(value: char) -> Self {
