@@ -9,32 +9,47 @@ fn main() {
         .format(|buf, record| writeln!(buf, "{}", record.args()))
         .target(env_logger::Target::Stdout)
         .init();
-    let mut grid = Grid::<Number>::from(include_str!("input.txt"));
-    println!("Part 1: {}", part1(&mut grid));
+    let grid = Grid::<Number>::from(include_str!("input.txt"));
+    println!("Part 1: {}", part1(&grid));
+    println!("Part 2: {}", part2(&grid));
 }
 
-fn part1(grid: &mut Grid<Number>) -> u32 {
-    let east_path = Path {
-        last_corner: Corner {
-            position: Position::new(0, 0),
-            alignment: Alignment::Horizontal,
-        },
-        inner_heat: 0,
-        step_heat: 0,
-    };
-    let south_path = Path {
-        last_corner: Corner {
-            position: Position::new(0, 0),
-            alignment: Alignment::Vertical,
-        },
-        inner_heat: 0,
-        step_heat: 0,
-    };
-
+fn part1(grid: &Grid<Number>) -> u32 {
     let mut cache = HashMap::new();
-    find_min_path(east_path, grid, &mut cache);
-    find_min_path(south_path, grid, &mut cache);
+    find_min_path::<Crucible>(start_paths().0, grid, &mut cache);
+    find_min_path::<Crucible>(start_paths().1, grid, &mut cache);
+    min_solution_heat(grid, &cache).unwrap()
+}
 
+fn part2(grid: &Grid<Number>) -> u32 {
+    let mut cache = HashMap::new();
+    find_min_path::<UltraCrucible>(start_paths().0, grid, &mut cache);
+    find_min_path::<UltraCrucible>(start_paths().1, grid, &mut cache);
+    min_solution_heat(grid, &cache).unwrap()
+}
+
+fn start_paths() -> (Path, Path) {
+    (
+        Path {
+            last_corner: Corner {
+                position: Position::new(0, 0),
+                alignment: Alignment::Horizontal,
+            },
+            inner_heat: 0,
+            step_heat: 0,
+        },
+        Path {
+            last_corner: Corner {
+                position: Position::new(0, 0),
+                alignment: Alignment::Vertical,
+            },
+            inner_heat: 0,
+            step_heat: 0,
+        },
+    )
+}
+
+fn min_solution_heat(grid: &Grid<Number>, cache: &HashMap<Corner, u32>) -> Option<u32> {
     let cache_vertical = cache.get(&Corner {
         position: grid.bottom_right(),
         alignment: Alignment::Vertical,
@@ -43,26 +58,13 @@ fn part1(grid: &mut Grid<Number>) -> u32 {
         position: grid.bottom_right(),
         alignment: Alignment::Horizontal,
     });
-
-    *cache_vertical.min(cache_horizontal).unwrap()
+    cache_vertical.min(cache_horizontal).copied()
 }
 
-fn min_solution_heat(grid: &Grid<Number>, cache: &HashMap<Corner, u32>) -> Option<u32> {
-    let end_vertical = Corner {
-        position: grid.bottom_right(),
-        alignment: Alignment::Vertical,
-    };
-    let end_horizontal = Corner {
-        position: grid.bottom_right(),
-        alignment: Alignment::Horizontal,
-    };
-    cache
-        .get(&end_vertical)
-        .min(cache.get(&end_horizontal))
-        .copied()
-}
-
-fn find_min_path(start: Path, grid: &Grid<Number>, cache: &mut HashMap<Corner, u32>) {
+fn find_min_path<T>(start: Path, grid: &Grid<Number>, cache: &mut HashMap<Corner, u32>)
+where
+    T: Step,
+{
     // Stop paths with more heat than current solution.
     if let Some(min_heat) = min_solution_heat(grid, cache) {
         if start.inner_heat > min_heat {
@@ -82,8 +84,8 @@ fn find_min_path(start: Path, grid: &Grid<Number>, cache: &mut HashMap<Corner, u
         debug!("got solution heat: {}", start.inner_heat);
     }
 
-    for path in start.step(3, grid) {
-        find_min_path(path, grid, cache);
+    for path in start.step::<T>(grid) {
+        find_min_path::<T>(path, grid, cache);
     }
 }
 
@@ -100,17 +102,22 @@ struct Path {
     inner_heat: u32,
 }
 
-impl Path {
-    fn step(self, count: usize, grid: &Grid<Number>) -> impl Iterator<Item = Path> + use<'_> {
-        let directions = self.last_corner.alignment.directions();
-        let alignment = self.last_corner.alignment.orthogonal();
+trait Step {
+    fn step(start: Path, grid: &Grid<Number>) -> impl Iterator<Item = Path>;
+}
 
-        let inner_heat = self.inner_heat;
+struct Crucible;
+impl Step for Crucible {
+    fn step(start: Path, grid: &Grid<Number>) -> impl Iterator<Item = Path> {
+        let directions = start.last_corner.alignment.directions();
+        let alignment = start.last_corner.alignment.orthogonal();
+
+        let inner_heat = start.inner_heat;
         let mut step_heat = 0;
-        let first = self
+        let first = start
             .last_corner
             .position
-            .steps(count, directions[0], grid)
+            .steps(3, directions[0], grid)
             .into_iter()
             .map(move |position| {
                 step_heat += grid.cell(position).inner;
@@ -125,12 +132,12 @@ impl Path {
                 }
             });
 
-        let inner_heat = self.inner_heat;
+        let inner_heat = start.inner_heat;
         let mut step_heat = 0;
-        let second = self
+        let second = start
             .last_corner
             .position
-            .steps(count, directions[1], grid)
+            .steps(3, directions[1], grid)
             .into_iter()
             .map(move |position| {
                 step_heat += grid.cell(position).inner;
@@ -146,6 +153,63 @@ impl Path {
             });
 
         first.chain(second)
+    }
+}
+
+struct UltraCrucible;
+impl Step for UltraCrucible {
+    fn step(start: Path, grid: &Grid<Number>) -> impl Iterator<Item = Path> {
+        let directions = start.last_corner.alignment.directions();
+        let alignment = start.last_corner.alignment.orthogonal();
+
+        let inner_heat = start.inner_heat;
+        let mut step_heat = 0;
+        let four_steps = start.last_corner.position.steps(10, directions[0], grid);
+        four_steps.iter().take(3).for_each(|position| {
+            step_heat += grid.cell(*position).inner;
+        });
+        let first = four_steps.into_iter().skip(3).map(move |position| {
+            step_heat += grid.cell(position).inner;
+            let step_corner = Corner {
+                position,
+                alignment,
+            };
+            Path {
+                inner_heat: inner_heat + step_heat,
+                last_corner: step_corner,
+                step_heat,
+            }
+        });
+
+        let inner_heat = start.inner_heat;
+        let mut step_heat = 0;
+        let four_steps = start.last_corner.position.steps(10, directions[1], grid);
+        four_steps.iter().take(3).for_each(|position| {
+            step_heat += grid.cell(*position).inner;
+        });
+        let second = four_steps.into_iter().skip(3).map(move |position| {
+            step_heat += grid.cell(position).inner;
+            let step_corner = Corner {
+                position,
+                alignment,
+            };
+            Path {
+                inner_heat: inner_heat + step_heat,
+                last_corner: step_corner,
+                step_heat,
+            }
+        });
+
+        first.chain(second)
+    }
+}
+
+impl Path {
+    fn step<T>(self, grid: &Grid<Number>) -> impl Iterator<Item = Path> + use<'_, T>
+    where
+        T: Step,
+    {
+        T::step(self, grid)
     }
 }
 
