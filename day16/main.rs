@@ -174,12 +174,12 @@ fn display_visited_grid(grid: &Grid<Cell>, visited: &Visited) {
     for r in 0..visited.len() {
         for c in 0..visited[0].len() {
             if visited[r][c].is_empty() {
-                print!("{}", char::from(&grid.cell(Position { r, c })));
+                print!("{}", char::from(grid.cell(Position { r, c })));
             } else if visited[r][c].len() > 2 {
                 count += 1;
                 print!(
                     "{}",
-                    char::from(&grid.cell(Position { r, c }))
+                    char::from(grid.cell(Position { r, c }))
                         .to_string()
                         .as_str()
                         .purple()
@@ -206,7 +206,7 @@ fn display_visited_grid(grid: &Grid<Cell>, visited: &Visited) {
                 print!(
                     "{}",
                     //cell
-                    char::from(&grid.cell(Position { r, c }))
+                    char::from(grid.cell(Position { r, c }))
                         .to_string()
                         .as_str()
                         .red()
