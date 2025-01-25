@@ -16,57 +16,73 @@ fn main() {
         .collect::<Vec<_>>();
 
     println!("Part 1: {}", dig_part1(&edges));
-    //println!("Part 2: {}", dig(&edges, true));
+    println!("Part 2: {}", dig(&edges, Part::Part2));
 }
 
-fn dig_part1(edges: &[Edge]) -> usize {
-    // Calculate grid dimensions and start position for digging.
-    let (mut r, mut c): (i128, i128) = (0, 0);
-    let (mut max_r, mut max_c): (i128, i128) = (0, 0);
-    let (mut min_r, mut min_c): (i128, i128) = (0, 0);
+#[derive(Clone, Copy)]
+enum Part {
+    Part1,
+    Part2,
+}
+
+fn dimensions_and_start(edges: &[Edge], part: Part) -> (Dimensions, Position) {
+    type Signed = i32;
+
+    let (mut r, mut c): (Signed, Signed) = (0, 0);
+    let (mut max_r, mut max_c): (Signed, Signed) = (0, 0);
+    let (mut min_r, mut min_c): (Signed, Signed) = (0, 0);
+
     for edge in edges.iter() {
-        match edge.direction {
+        match edge.direction(part) {
             Direction::N => {
-                r -= edge.length as i128;
+                r -= edge.length(part) as Signed;
                 min_r = min_r.min(r);
             }
             Direction::E => {
-                c += edge.length as i128;
+                c += edge.length(part) as Signed;
                 max_c = max_c.max(c);
             }
             Direction::S => {
-                r += edge.length as i128;
+                r += edge.length(part) as Signed;
                 max_r = max_r.max(r);
             }
             Direction::W => {
-                c -= edge.length as i128;
+                c -= edge.length(part) as Signed;
                 min_c = min_c.min(c);
             }
         }
     }
+
     let dimensions = Dimensions {
         r: (max_r - min_r) as usize + 1,
         c: (max_c - min_c) as usize + 1,
     };
-    let mut start_position = Position {
+    let start_position = Position {
         r: min_r.unsigned_abs() as usize,
         c: min_c.unsigned_abs() as usize,
     };
 
+    (dimensions, start_position)
+}
+
+fn dig_part1(edges: &[Edge]) -> usize {
+    let (dimensions, mut start_position) = dimensions_and_start(edges, Part::Part1);
     let mut grid: Grid<Ground> = Grid::from(dimensions);
 
     // Dig border trench.
     *grid.cell_mut(start_position) = Ground::Trench { color: "#ffffff" };
     for edge in edges.iter() {
         let mut end: Option<Position> = None;
-        for position in start_position.steps(edge.length, edge.direction, &grid) {
+        for position in
+            start_position.steps(edge.length(Part::Part1), edge.direction(Part::Part1), &grid)
+        {
             *grid.cell_mut(position) = Ground::Trench { color: edge.color };
             end = Some(position);
         }
         start_position = end.unwrap();
     }
 
-    //print_grid(&grid);
+    print_grid(&grid);
 
     // Find a cell inside the border.
     let mut inside: Option<Position> = None;
@@ -103,6 +119,23 @@ fn dig_part1(edges: &[Edge]) -> usize {
         .count()
 }
 
+#[derive(Clone)]
+enum Orientation {
+    Up,
+    Down,
+}
+
+fn dig(edges: &[Edge], part: Part) -> usize {
+    let (dimensions, start_position) = dimensions_and_start(edges, part);
+    dbg!(dimensions);
+    dbg!(start_position);
+
+    let grid: Vec<Vec<Orientation>> = vec![vec![]; dimensions.r];
+    dbg!(grid.len());
+
+    todo!()
+}
+
 #[allow(unused)]
 fn print_grid(grid: &Grid<Ground>) {
     grid.print(|position, value| {
@@ -126,17 +159,23 @@ struct Edge {
 }
 
 impl Edge {
-    fn actual_length(&self) -> usize {
-        usize::from_str_radix(&self.color[1..6], 16).unwrap()
+    fn length(&self, part: Part) -> usize {
+        match part {
+            Part::Part1 => self.length,
+            Part::Part2 => usize::from_str_radix(&self.color[1..6], 16).unwrap(),
+        }
     }
 
-    fn actual_direction(&self) -> Direction {
-        match self.color[6..7].parse::<u8>().unwrap() {
-            0 => Direction::E,
-            1 => Direction::S,
-            2 => Direction::W,
-            3 => Direction::N,
-            _ => unreachable!(),
+    fn direction(&self, part: Part) -> Direction {
+        match part {
+            Part::Part1 => self.direction,
+            Part::Part2 => match self.color[6..7].parse::<u8>().unwrap() {
+                0 => Direction::E,
+                1 => Direction::S,
+                2 => Direction::W,
+                3 => Direction::N,
+                _ => unreachable!(),
+            },
         }
     }
 }
