@@ -15,40 +15,31 @@ fn main() {
         })
         .collect::<Vec<_>>();
 
-    println!("Part 1: {}", dig(&edges, false));
+    println!("Part 1: {}", dig_part1(&edges));
     //println!("Part 2: {}", dig(&edges, true));
 }
 
-fn dig(edges: &[Edge], actual: bool) -> usize {
+fn dig_part1(edges: &[Edge]) -> usize {
     // Calculate grid dimensions and start position for digging.
     let (mut r, mut c): (i128, i128) = (0, 0);
     let (mut max_r, mut max_c): (i128, i128) = (0, 0);
     let (mut min_r, mut min_c): (i128, i128) = (0, 0);
     for edge in edges.iter() {
-        let length = if actual {
-            edge.actual_length()
-        } else {
-            edge.length
-        } as i128;
-        match if actual {
-            edge.actual_direction()
-        } else {
-            edge.direction
-        } {
+        match edge.direction {
             Direction::N => {
-                r -= length;
+                r -= edge.length as i128;
                 min_r = min_r.min(r);
             }
             Direction::E => {
-                c += length;
+                c += edge.length as i128;
                 max_c = max_c.max(c);
             }
             Direction::S => {
-                r += length;
+                r += edge.length as i128;
                 max_r = max_r.max(r);
             }
             Direction::W => {
-                c -= length;
+                c -= edge.length as i128;
                 min_c = min_c.min(c);
             }
         }
@@ -61,30 +52,19 @@ fn dig(edges: &[Edge], actual: bool) -> usize {
         r: min_r.unsigned_abs() as usize,
         c: min_c.unsigned_abs() as usize,
     };
-    dbg!(dimensions);
-    dbg!(start_position);
 
-    println!("0000000000000000");
     let mut grid: Grid<Ground> = Grid::from(dimensions);
-    println!("1111111111111111");
 
     // Dig border trench.
-    //*grid.cell_mut(start_position) = Ground::Trench { color: "#ffffff" };
-    *grid.cell_mut(start_position) = Ground::Trench;
+    *grid.cell_mut(start_position) = Ground::Trench { color: "#ffffff" };
     for edge in edges.iter() {
         let mut end: Option<Position> = None;
-        let (length, direction) = match actual {
-            true => (edge.actual_length(), edge.actual_direction()),
-            false => (edge.length, edge.direction),
-        };
-        for position in start_position.steps(length, direction, &grid) {
-            //*grid.cell_mut(position) = Ground::Trench { color: edge.color };
-            *grid.cell_mut(position) = Ground::Trench;
+        for position in start_position.steps(edge.length, edge.direction, &grid) {
+            *grid.cell_mut(position) = Ground::Trench { color: edge.color };
             end = Some(position);
         }
         start_position = end.unwrap();
     }
-    println!("2222222222222222");
 
     //print_grid(&grid);
 
@@ -92,7 +72,7 @@ fn dig(edges: &[Edge], actual: bool) -> usize {
     let mut inside: Option<Position> = None;
     for (row_i, row) in grid.inner.iter().enumerate() {
         let mut row = row.iter().enumerate();
-        if row.any(|(_, x)| matches!(x, Ground::Trench)) {
+        if row.any(|(_, x)| matches!(x, Ground::Trench { .. })) {
             if let Some((column_i, Ground::Level)) = row.next() {
                 inside = Some(Position::new(row_i, column_i));
                 break;
@@ -100,15 +80,13 @@ fn dig(edges: &[Edge], actual: bool) -> usize {
         }
     }
     let inside = inside.unwrap();
-    dbg!(inside);
 
     // Fill the center inside the border trench.
     let mut to_dig = HashSet::from([inside]);
     while !to_dig.is_empty() {
         let mut next_to_dig = HashSet::new();
         for trench in to_dig.iter() {
-            //*grid.cell_mut(*trench) = Ground::Trench { color: "#ffffff" };
-            *grid.cell_mut(*trench) = Ground::Trench;
+            *grid.cell_mut(*trench) = Ground::Trench { color: "#ffffff" };
             for adjacent in trench.adjacent(&grid) {
                 if *grid.cell(adjacent) == Ground::Level {
                     next_to_dig.insert(adjacent);
@@ -116,34 +94,16 @@ fn dig(edges: &[Edge], actual: bool) -> usize {
             }
         }
         to_dig = next_to_dig;
-
-        /*
-        println!("{}", to_dig.len());
-        println!("{to_dig:?}");
-        grid.print(|p, v| {
-            if to_dig.contains(&p) {
-                "X".to_string()
-            } else {
-                v.to_string()
-            }
-        });
-        */
     }
 
     //print_grid(&grid);
 
-    let part1 = grid.cells().filter(|x| matches!(x, Ground::Trench)).count();
-
-    let level = grid.cells().filter(|x| matches!(x, Ground::Level)).count();
-    let area = dimensions.r * dimensions.c;
-    println!("trench:{part1} level:{level} area:{area}");
-
-    //println!("Part 1: {part1}");
-
-    part1
+    grid.cells()
+        .filter(|x| matches!(x, Ground::Trench { .. }))
+        .count()
 }
 
-/*
+#[allow(unused)]
 fn print_grid(grid: &Grid<Ground>) {
     grid.print(|position, value| {
         use colored::{ColoredString, Colorize};
@@ -157,7 +117,6 @@ fn print_grid(grid: &Grid<Ground>) {
         }
     });
 }
-*/
 
 #[derive(Debug)]
 struct Edge {
@@ -184,12 +143,9 @@ impl Edge {
 
 #[derive(Default, Copy, Clone, PartialEq)]
 enum Ground {
-    /*
     Trench {
         color: &'static str,
     },
-    */
-    Trench,
     #[default]
     Level,
 }
@@ -197,7 +153,7 @@ enum Ground {
 impl From<&Ground> for char {
     fn from(value: &Ground) -> Self {
         match value {
-            Ground::Trench => '#',
+            Ground::Trench { .. } => '#',
             Ground::Level => '.',
         }
     }
