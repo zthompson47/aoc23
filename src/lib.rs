@@ -3,7 +3,7 @@ pub struct Grid<T>
 where
     T: Clone,
 {
-    inner: Vec<Vec<T>>,
+    pub inner: Vec<Vec<T>>,
 }
 
 impl<T> Grid<T>
@@ -28,6 +28,10 @@ where
 
     pub fn cell_mut(&mut self, position: Position) -> &mut T {
         &mut self.inner[position.r][position.c]
+    }
+
+    pub fn cells(&self) -> impl Iterator<Item = &T> {
+        self.inner.iter().flatten()
     }
 
     pub fn bottom_right(&self) -> Position {
@@ -86,6 +90,48 @@ where
     }
 }
 
+impl<T> From<&str> for Grid<T>
+where
+    T: From<char>,
+    T: Clone,
+{
+    fn from(value: &str) -> Self {
+        value.lines().fold(Grid::new(), |mut grid, row| {
+            grid.inner.push(row.chars().map(T::from).collect());
+            grid
+        })
+    }
+}
+
+impl<T> From<Dimensions> for Grid<T>
+where
+    T: Clone + Default,
+{
+    fn from(dimensions: Dimensions) -> Self {
+        Self {
+            inner: vec![vec![T::default(); dimensions.c]; dimensions.r],
+        }
+    }
+}
+
+impl<T> std::fmt::Display for Grid<T>
+where
+    char: for<'a> std::convert::From<&'a T>,
+    T: Clone,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.inner
+                .iter()
+                .map(|r| r.iter().map(char::from).collect::<String>())
+                .collect::<Vec<_>>()
+                .join("\n")
+        )
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Position {
     pub r: usize,
@@ -99,8 +145,23 @@ impl std::fmt::Display for Position {
 }
 
 impl Position {
+    pub const ORIGIN: Position = Position { r: 0, c: 0 };
+
     pub fn new(r: usize, c: usize) -> Self {
         Position { r, c }
+    }
+
+    pub fn adjacent<T>(&self, grid: &Grid<T>) -> Vec<Self>
+    where
+        T: Clone,
+    {
+        let mut result = vec![];
+        for direction in Direction::all() {
+            if let Some(step) = self.step(direction, grid) {
+                result.push(step);
+            }
+        }
+        result
     }
 
     pub fn steps<T>(&self, count: usize, direction: Direction, grid: &Grid<T>) -> Vec<Self>
@@ -175,43 +236,24 @@ pub struct Dimensions {
     pub c: usize,
 }
 
-impl<T> std::fmt::Display for Grid<T>
-where
-    char: for<'a> std::convert::From<&'a T>,
-    T: Clone,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.inner
-                .iter()
-                .map(|r| r.iter().map(char::from).collect::<String>())
-                .collect::<Vec<_>>()
-                .join("\n")
-        )
-    }
-}
-
-impl<T> From<&str> for Grid<T>
-where
-    T: From<char>,
-    T: Clone,
-{
-    fn from(value: &str) -> Self {
-        value.lines().fold(Grid::new(), |mut grid, row| {
-            grid.inner.push(row.chars().map(T::from).collect());
-            grid
-        })
-    }
-}
-
 #[derive(Debug, PartialEq, Clone, Copy, Eq, Hash)]
 pub enum Direction {
     N,
     E,
     S,
     W,
+}
+
+impl From<&str> for Direction {
+    fn from(value: &str) -> Self {
+        match value {
+            "R" => Direction::E,
+            "L" => Direction::W,
+            "U" => Direction::N,
+            "D" => Direction::S,
+            _ => unreachable!(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Copy, Eq, Hash)]
