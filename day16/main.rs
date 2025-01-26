@@ -189,7 +189,7 @@ fn display_visited_grid(grid: &Grid<Cell>, visited: &Visited) {
                 count += 1;
                 print!(
                     "{}",
-                    char::from(&grid.cell(Position { r, c }))
+                    char::from(grid.cell(Position { r, c }))
                         .to_string()
                         .as_str()
                         .green()
