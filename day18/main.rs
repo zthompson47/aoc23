@@ -1,9 +1,9 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
 use aoc23::{Dimensions, Direction, Grid, Position};
 
 fn main() {
-    let edges = include_str!("test.txt")
+    let edges = include_str!("input.txt")
         .lines()
         .map(|line| {
             let mut parts = line.split_ascii_whitespace();
@@ -15,8 +15,108 @@ fn main() {
         })
         .collect::<Vec<_>>();
 
-    println!("Part 1: {}", dig_part1(&edges));
+    println!("Part 1: {}", dig(&edges, Part::Part1));
     println!("Part 2: {}", dig(&edges, Part::Part2));
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum Orientation {
+    Up,
+    Down,
+    Sideways,
+}
+
+fn dig(edges: &[Edge], part: Part) -> usize {
+    // Set up sparse structure to hold edge data.
+    let (dimensions, start_position) = dimensions_and_start(edges, part);
+    let mut grid: Vec<BTreeMap<usize, Orientation>> = vec![BTreeMap::new(); dimensions.r];
+    //dbg!(dimensions);
+    //dbg!(start_position);
+    //dbg!(grid.len());
+
+    // Draw edges with orientation.
+    let mut position = start_position;
+    let mut end_orientation: Option<Orientation> = None;
+    for edge in edges.iter() {
+        let orientation = edge.orientation(part);
+        for _ in 0..edge.length(part) {
+            if orientation == Orientation::Up || orientation == Orientation::Down {
+                grid[position.r].insert(position.c, orientation);
+            }
+            position = position.step_fallible(edge.direction(part));
+            grid[position.r].insert(position.c, orientation);
+        }
+        end_orientation = Some(orientation);
+    }
+
+    // Set start point orientation based on orientation of final edge.
+    if let Some(orientation) = end_orientation {
+        if orientation == Orientation::Up || orientation == Orientation::Down {
+            grid[start_position.r].insert(start_position.c, orientation);
+        }
+    }
+
+    // Figure out which side of the edge orientation is the interior.
+    // Assume there is a section of vertical edge on the left, one unit thick, with interior
+    // directly to the right.
+    let mut to_inside: Option<Orientation> = None;
+    for row in grid.iter() {
+        if let Some((column, orientation)) = row.first_key_value() {
+            if [Orientation::Up, Orientation::Down].contains(orientation) {
+                if let Some(next_column) = row.keys().nth(1) {
+                    if next_column - column > 1 {
+                        to_inside = Some(*orientation);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    let to_inside = to_inside.unwrap();
+    let to_outside = match to_inside {
+        Orientation::Up => Orientation::Down,
+        Orientation::Down => Orientation::Up,
+        Orientation::Sideways => unreachable!(),
+    };
+
+    // Calculate area of trench.
+    let mut result = 0;
+    for row in grid.iter() {
+        let mut prior_column: Option<usize> = None;
+        for (column, orientation) in row {
+            result += 1;
+            if *orientation == to_outside {
+                if let Some(prior_column) = prior_column {
+                    result += column - prior_column - 1;
+                }
+            }
+            prior_column = Some(*column);
+        }
+    }
+
+    result
+
+    /*
+    // Print data structure.
+    for r in 0..dimensions.r {
+        for c in 0..dimensions.c {
+            if let Some(orientation) = grid[r].get(&c) {
+                print!(
+                    "{}",
+                    match orientation {
+                        Orientation::Up => "^",
+                        Orientation::Down => "v",
+                        Orientation::Sideways => "#",
+                    }
+                );
+            } else {
+                print!(".");
+            }
+        }
+        println!();
+    }
+    println!();
+    */
 }
 
 #[derive(Clone, Copy)]
@@ -65,6 +165,7 @@ fn dimensions_and_start(edges: &[Edge], part: Part) -> (Dimensions, Position) {
     (dimensions, start_position)
 }
 
+#[allow(unused)]
 fn dig_part1(edges: &[Edge]) -> usize {
     let (dimensions, mut start_position) = dimensions_and_start(edges, Part::Part1);
     let mut grid: Grid<Ground> = Grid::from(dimensions);
@@ -119,23 +220,6 @@ fn dig_part1(edges: &[Edge]) -> usize {
         .count()
 }
 
-#[derive(Clone)]
-enum Orientation {
-    Up,
-    Down,
-}
-
-fn dig(edges: &[Edge], part: Part) -> usize {
-    let (dimensions, start_position) = dimensions_and_start(edges, part);
-    dbg!(dimensions);
-    dbg!(start_position);
-
-    let grid: Vec<Vec<Orientation>> = vec![vec![]; dimensions.r];
-    dbg!(grid.len());
-
-    todo!()
-}
-
 #[allow(unused)]
 fn print_grid(grid: &Grid<Ground>) {
     grid.print(|position, value| {
@@ -176,6 +260,14 @@ impl Edge {
                 3 => Direction::N,
                 _ => unreachable!(),
             },
+        }
+    }
+
+    fn orientation(&self, part: Part) -> Orientation {
+        match self.direction(part) {
+            Direction::N => Orientation::Up,
+            Direction::S => Orientation::Down,
+            Direction::E | Direction::W => Orientation::Sideways,
         }
     }
 }

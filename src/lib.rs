@@ -181,6 +181,27 @@ impl Position {
         result
     }
 
+    pub fn step_fallible(&self, direction: Direction) -> Self {
+        match direction {
+            Direction::N => Position {
+                r: self.r - 1,
+                c: self.c,
+            },
+            Direction::E => Position {
+                r: self.r,
+                c: self.c + 1,
+            },
+            Direction::S => Position {
+                r: self.r + 1,
+                c: self.c,
+            },
+            Direction::W => Position {
+                r: self.r,
+                c: self.c - 1,
+            },
+        }
+    }
+
     pub fn step<T>(&self, direction: Direction, grid: &Grid<T>) -> Option<Self>
     where
         T: Clone,
