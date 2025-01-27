@@ -2,17 +2,21 @@ use std::collections::HashMap;
 
 fn main() {
     let mut lines = include_str!("input.txt").lines();
-    let mut program: HashMap<&'static str, Vec<Rule>> = HashMap::new();
+    let mut program: HashMap<&'static str, Routine> = HashMap::new();
 
     for line in lines.by_ref() {
         if line.is_empty() {
             break;
         }
+
         let (name, rules_src) = line.split_once('{').unwrap();
-        let mut rules: Vec<Rule> = Vec::new();
         let rules_src = rules_src.strip_suffix('}').unwrap().split(',');
+
+        let mut comparisons: Vec<Comparison> = Vec::new();
+        let mut result: Option<Outcome> = None;
+
         for rule_src in rules_src {
-            rules.push(if rule_src.contains(':') {
+            if rule_src.contains(':') {
                 let (operation, sub) = rule_src.split_once(':').unwrap();
                 let operation = operation.chars().collect::<Vec<_>>();
                 let variable = operation[0];
@@ -23,30 +27,37 @@ fn main() {
                     .parse::<u32>()
                     .unwrap();
                 let sub = match sub {
-                    "A" => Rule::Accept,
-                    "R" => Rule::Reject,
-                    x => Rule::GoSub(x),
+                    "A" => Outcome::Accept,
+                    "R" => Outcome::Reject,
+                    x => Outcome::GoSub(x),
                 };
-                Rule::Compare {
+                comparisons.push(Comparison {
                     variable: Variable::from(variable),
-                    operator: match operator {
+                    ordering: match operator {
                         '<' => std::cmp::Ordering::Less,
                         '>' => std::cmp::Ordering::Greater,
                         _ => unreachable!(),
                     },
                     value,
-                    result: Box::new(sub),
-                }
+                    outcome: sub.clone(), // Remove clone later
+                });
             } else {
-                match rule_src {
-                    "A" => Rule::Accept,
-                    "R" => Rule::Reject,
-                    x => Rule::GoSub(x),
-                }
-            });
+                let end_result = match rule_src {
+                    "A" => Outcome::Accept,
+                    "R" => Outcome::Reject,
+                    x => Outcome::GoSub(x),
+                };
+                result = Some(end_result.clone());
+            };
         }
-        //dbg!(&rules);
-        program.insert(name, rules);
+
+        program.insert(
+            name,
+            Routine {
+                comparisons,
+                result: result.unwrap(),
+            },
+        );
     }
 
     let mut parts: Vec<Part> = Vec::new();
@@ -69,7 +80,6 @@ fn main() {
             s: variables[3],
         });
     }
-    //dbg!(&parts);
 
     let part1: u32 = parts
         .iter()
@@ -80,137 +90,39 @@ fn main() {
     println!("Part 1: {part1}");
 }
 
-fn run_routine(
-    name: &'static str,
-    program: &HashMap<&'static str, Vec<Rule>>,
-    part: &Part,
-) -> bool {
+fn run_routine(name: &'static str, program: &HashMap<&'static str, Routine>, part: &Part) -> bool {
     let routine = program.get(name).unwrap();
-    let process_result = |rule: &Rule| -> bool {
+    let process_result = |rule: &Outcome| -> bool {
         match rule {
-            Rule::Compare { .. } => unreachable!(),
-            Rule::GoSub(name) => run_routine(name, program, part),
-            Rule::Accept => true,
-            Rule::Reject => false,
+            Outcome::GoSub(name) => run_routine(name, program, part),
+            Outcome::Accept => true,
+            Outcome::Reject => false,
         }
     };
 
-    for rule in routine.iter().take(routine.len() - 1) {
-        if let Rule::Compare {
-            variable,
-            operator,
-            value,
-            result,
-        } = &rule
-        {
-            if part.variable(*variable).cmp(value) == *operator {
-                return process_result(result);
-            }
-        } else {
-            unreachable!()
+    for comparison in routine.comparisons.iter() {
+        if part.variable(comparison.variable).cmp(&comparison.value) == comparison.ordering {
+            return process_result(&comparison.outcome);
         }
     }
 
-    match routine.last() {
-        Some(rule) => process_result(rule),
-        None => unreachable!(),
-    }
+    process_result(&routine.result)
 }
 
-/*
-fn __run_routine(
-    name: &'static str,
-    program: &HashMap<&'static str, Vec<Rule>>,
-    part: &Part,
-) -> bool {
-    let mut routine = program.get(name).unwrap().iter();
-    while let Some(Rule::Compare {
-        variable,
-        operator,
-        value,
-        result,
-    }) = routine.next()
-    {
-        if part.variable(*variable).cmp(value) == *operator {
-            return match **result {
-                Rule::Compare { .. } => unreachable!(),
-                Rule::GoSub(name) => return __run_routine(name, program, part),
-                Rule::Accept => true,
-                Rule::Reject => false,
-            };
-        }
-    }
-    match routine.next() {
-        Some(rule) => match rule {
-            Rule::Compare { .. } => unreachable!(),
-            Rule::GoSub(name) => __run_routine(name, program, part),
-            Rule::Accept => true,
-            Rule::Reject => false,
-        },
-        None => unreachable!(),
-    }
+struct Comparison {
+    variable: Variable,
+    ordering: std::cmp::Ordering,
+    value: u32,
+    outcome: Outcome,
 }
 
-fn _run_routine(
-    name: &'static str,
-    program: &HashMap<&'static str, Vec<Rule>>,
-    part: &Part,
-) -> Rule {
-    for rule in program.get(name).unwrap() {
-        match rule {
-            Rule::Compare {
-                variable,
-                operator,
-                value,
-                result,
-            } => {
-                let variable = part.variable(*variable);
-                if variable.cmp(value) == *operator {
-                    return match **result {
-                        Rule::Compare { .. } => unreachable!(),
-                        Rule::GoSub(name) => return _run_routine(name, program, part),
-                        ref rule @ (Rule::Reject | Rule::Accept) => return rule.clone(),
-                    };
-                } else {
-                    continue;
-                }
-            }
-            Rule::GoSub(name) => return _run_routine(name, program, part),
-            rule @ (Rule::Reject | Rule::Accept) => return rule.clone(),
-        }
-    }
-    unreachable!()
-}
-*/
-
-#[derive(Clone, Copy, Debug)]
-enum Variable {
-    X,
-    M,
-    A,
-    S,
-}
-
-impl From<char> for Variable {
-    fn from(value: char) -> Self {
-        match value {
-            'x' => Variable::X,
-            'm' => Variable::M,
-            'a' => Variable::A,
-            's' => Variable::S,
-            _ => unreachable!(),
-        }
-    }
+struct Routine {
+    comparisons: Vec<Comparison>,
+    result: Outcome,
 }
 
 #[derive(Clone, Debug)]
-enum Rule {
-    Compare {
-        variable: Variable,
-        operator: std::cmp::Ordering,
-        value: u32,
-        result: Box<Rule>,
-    },
+enum Outcome {
     GoSub(&'static str),
     Reject,
     Accept,
@@ -235,6 +147,26 @@ impl Part {
             Variable::M => self.m,
             Variable::A => self.a,
             Variable::S => self.s,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+enum Variable {
+    X,
+    M,
+    A,
+    S,
+}
+
+impl From<char> for Variable {
+    fn from(value: char) -> Self {
+        match value {
+            'x' => Variable::X,
+            'm' => Variable::M,
+            'a' => Variable::A,
+            's' => Variable::S,
+            _ => unreachable!(),
         }
     }
 }
