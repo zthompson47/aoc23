@@ -31,6 +31,10 @@ path = "day18/main.rs"
 name = "day19"
 path = "day19/main.rs"
 
+[[bin]]
+name = "day20"
+path = "day20/main.rs"
+
 [dependencies]
 colored = "2.2.0"
 env_logger = "0.11.6"
