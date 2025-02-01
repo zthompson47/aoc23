@@ -3,6 +3,9 @@ name = "aoc23"
 version = "0.1.0"
 edition = "2021"
 
+[profile.release]
+overflow-checks = true
+
 [[bin]]
 name = "day13"
 path = "day13/main.rs"

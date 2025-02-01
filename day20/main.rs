@@ -1,9 +1,8 @@
-#![allow(unused)]
 use std::collections::HashMap;
 
 fn main() {
     let input = include_str!("input.txt");
-    //println!("Part 1: {}", part1(input));
+    println!("Part 1: {}", part1(input));
     println!("Part 2: {}", part2(input));
 }
 
@@ -11,46 +10,22 @@ fn part2(input: &'static str) -> u128 {
     let mut network = Network::new(input);
     let mut count = 0;
 
-    let first_nodes = ["ct", "hr", "ft", "qm"];
-    let initial_state = network.node_state(&first_nodes);
+    //let first_nodes = ["ct", "hr", "ft", "qm"];
+    //let initial_state = network.node_state(&first_nodes);
 
     let (mut kd, mut zz, mut mh, mut cm): (Option<u128>, Option<u128>, Option<u128>, Option<u128>) =
         (None, None, None, None);
     'out: loop {
         count += 1;
 
-        //if count % 100000 == 0 {
-        //println!("--> {count}");
-        //}
+        //let to_cm = ["bd", "lg", "qd", "rp", "pc", "xl", "qn", "bk"];
+        //let to_mh = ["mj", "fr", "tp", "fl", "tk", "jg", "xg", "lz", "ct"];
+        //let to_zz = ["lj", "lh", "mp", "pz", "zq", "hr", "cx", "mf", "fs"];
+        //let to_kd = ["ks", "gk", "vq", "xk", "kb", "qm", "hv", "nv", "qj"];
 
-        /*
-        println!(
-            //"{} {} {} {} {}",
-            "{}",
-            //network.node_state(&["js", "qs", "dt", "ts"]),
-            //network.node_state(&["zz"]),
-            network.node_state(&["mh"]),
-            //network.node_state(&["cm"]),
-            //network.node_state(&["kd"]),
-        );
-        */
-        //println!("{}", network.conjunction_state());
-        /*
-        println!(
-            "{} {}",
-            network.node_state(&["ct", "hr", "ft", "qm"]),
-            network.node_state(&["mh", "mj", "zz", "zq", "qn", "cm", "kb", "kd"]),
-        );
-        */
-
-        let to_cm = ["bd", "lg", "qd", "rp", "pc", "xl", "qn", "bk"];
-        let to_mh = ["mj", "fr", "tp", "fl", "tk", "jg", "xg", "lz", "ct"];
-        let to_zz = ["lj", "lh", "mp", "pz", "zq", "hr", "cx", "mf", "fs"];
-        let to_kd = ["ks", "gk", "vq", "xk", "kb", "qm", "hv", "nv", "qj"];
-
-        let zz_lineup = [
-            "mp", "mf", "pz", "lh", "fs", "jk", "cx", "lj", "bh", "th", "zq", "hr",
-        ];
+        //let zz_lineup = [
+        //    "mp", "mf", "pz", "lh", "fs", "jk", "cx", "lj", "bh", "th", "zq", "hr",
+        //];
 
         //println!("{} {}", network.node_state(&zz_lineup), network.node_state(&["zz"]));
 
@@ -63,14 +38,10 @@ fn part2(input: &'static str) -> u128 {
         while !messages.is_empty() {
             let mut new_messages = vec![];
             for message in messages.iter() {
-                //if message.to == "cl" && message.signal == Signal::High {
-                //    println!("{count} {} {:?}", message.from, message.signal);
-                //}
-
                 //if message.to == "rx" && message.signal == Signal::Low {
                 //    break 'out count;
                 //}
-
+                // Find length of cycle for each counter feeding final four conjunctions.
                 if message.signal == Signal::Low {
                     if message.to == "hr" && message.from == "zz" {
                         zz = Some(count);
@@ -85,7 +56,6 @@ fn part2(input: &'static str) -> u128 {
                         kd = Some(count);
                     }
                     if let (Some(zz), Some(mh), Some(cm), Some(kd)) = (zz, mh, cm, kd) {
-                        println!("{zz} {mh} {cm} {kd}");
                         use num::integer::lcm;
                         break 'out lcm(zz, lcm(mh, lcm(cm, kd)));
                     }
@@ -95,10 +65,6 @@ fn part2(input: &'static str) -> u128 {
             }
             messages = new_messages;
         }
-
-        //if network.node_state(&first_nodes) == initial_state {
-        //println!("{}", network.node_state(&first_nodes));
-        //}
     }
 }
 
@@ -128,6 +94,7 @@ struct Network {
 }
 
 impl Network {
+    #[allow(unused)]
     fn flip_flop_state(&self) -> String {
         let mut result = String::new();
         for node in self.nodes.values() {
@@ -138,6 +105,7 @@ impl Network {
         result
     }
 
+    #[allow(unused)]
     fn conjunction_state(&self) -> String {
         let mut result = String::new();
         for node in self.nodes.values() {
@@ -153,6 +121,7 @@ impl Network {
         result
     }
 
+    #[allow(unused)]
     fn state(&self) -> String {
         let mut result = String::new();
         for node in self.nodes.values() {
@@ -170,6 +139,7 @@ impl Network {
         result
     }
 
+    #[allow(unused)]
     fn node_state(&self, nodes: &[&'static str]) -> String {
         let mut result = String::new();
         for name in nodes {
