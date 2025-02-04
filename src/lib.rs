@@ -88,12 +88,26 @@ where
 
         bottom_right.chain(middle).chain(top_left)
     }
+
+    pub fn swap_first(&mut self, target: T, replacement: T) -> Option<Position>
+    where
+        T: PartialEq,
+    {
+        for (r_i, row) in self.inner.iter_mut().enumerate() {
+            for (c_i, square) in row.iter_mut().enumerate() {
+                if *square == target {
+                    *square = replacement;
+                    return Some(Position::new(r_i, c_i));
+                }
+            }
+        }
+        None
+    }
 }
 
 impl<T> From<&str> for Grid<T>
 where
-    T: From<char>,
-    T: Clone,
+    T: From<char> + Clone,
 {
     fn from(value: &str) -> Self {
         value.lines().fold(Grid::new(), |mut grid, row| {
