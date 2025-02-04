@@ -178,6 +178,22 @@ impl Position {
         result
     }
 
+    pub fn adjacent_if<T>(&self, grid: &Grid<T>, predicate: impl Fn(&T) -> bool) -> Vec<Self>
+    where
+        T: Clone,
+    {
+        let mut result = vec![];
+
+        for direction in Direction::all() {
+            if let Some(step) = self.step(direction, grid) {
+                if predicate(grid.cell(step)) {
+                    result.push(step);
+                }
+            }
+        }
+        result
+    }
+
     pub fn steps<T>(&self, count: usize, direction: Direction, grid: &Grid<T>) -> Vec<Self>
     where
         T: Clone,
