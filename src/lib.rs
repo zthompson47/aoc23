@@ -178,6 +178,39 @@ impl Position {
         result
     }
 
+    pub fn adjacent_wrapping<T>(&self, grid: &Grid<T>) -> [(Self, Option<Direction>); 4]
+    where
+        T: Clone,
+    {
+        Direction::all()
+            .iter()
+            .fold(vec![], |mut result, direction| {
+                result.push(self.step_wrapping(*direction, grid));
+                result
+            })
+            .try_into()
+            .unwrap()
+    }
+
+    pub fn adjacent_if_wrapping<T>(
+        &self,
+        grid: &Grid<T>,
+        predicate: impl Fn(&T) -> bool,
+    ) -> Vec<(Self, Option<Direction>)>
+    where
+        T: Clone,
+    {
+        Direction::all()
+            .iter()
+            .fold(vec![], |mut result, direction| {
+                let step = self.step_wrapping(*direction, grid);
+                if predicate(grid.cell(step.0)) {
+                    result.push(self.step_wrapping(*direction, grid));
+                }
+                result
+            })
+    }
+
     pub fn adjacent_if<T>(&self, grid: &Grid<T>, predicate: impl Fn(&T) -> bool) -> Vec<Self>
     where
         T: Clone,
@@ -275,6 +308,105 @@ impl Position {
                     })
                 } else {
                     None
+                }
+            }
+        }
+    }
+
+    pub fn steps_wrapping<T>(
+        &self,
+        count: usize,
+        direction: Direction,
+        grid: &Grid<T>,
+    ) -> Vec<(Self, Direction, usize)>
+    where
+        T: Clone,
+    {
+        let mut result = Vec::new();
+        let mut start = *self;
+        let mut wraps = 0;
+        for _ in 0..count {
+            let (position, wrap_direction) = start.step_wrapping(direction, grid);
+            if wrap_direction.is_some() {
+                wraps += 1;
+            }
+            result.push((position, direction, wraps));
+            start = position;
+        }
+        result
+    }
+
+    pub fn step_wrapping<T>(
+        &self,
+        direction: Direction,
+        grid: &Grid<T>,
+    ) -> (Self, Option<Direction>)
+    where
+        T: Clone,
+    {
+        match direction {
+            Direction::N => {
+                if self.r > 0 {
+                    (
+                        Position {
+                            r: self.r - 1,
+                            c: self.c,
+                        },
+                        None,
+                    )
+                } else {
+                    (
+                        Position {
+                            r: grid.dim().r - 1,
+                            c: self.c,
+                        },
+                        Some(direction),
+                    )
+                }
+            }
+            Direction::E => {
+                if self.c < grid.dim().c - 1 {
+                    (
+                        Position {
+                            r: self.r,
+                            c: self.c + 1,
+                        },
+                        None,
+                    )
+                } else {
+                    (Position { r: self.r, c: 0 }, Some(direction))
+                }
+            }
+            Direction::S => {
+                if self.r < grid.dim().r - 1 {
+                    (
+                        Position {
+                            r: self.r + 1,
+                            c: self.c,
+                        },
+                        None,
+                    )
+                } else {
+                    (Position { r: 0, c: self.c }, Some(direction))
+                }
+            }
+            Direction::W => {
+                if self.c > 0 {
+                    (
+                        Position {
+                            r: self.r,
+                            c: self.c - 1,
+                        },
+                        None,
+                    )
+                } else {
+                    (
+                        Position {
+                            r: self.r,
+                            c: grid.dim().c - 1,
+                        },
+                        Some(direction),
+                    )
                 }
             }
         }
@@ -391,10 +523,142 @@ mod tests {
         }
     }
 
+    fn assert_vec_eq<T>(v1: Vec<T>, v2: Vec<T>)
+    where
+        T: PartialEq,
+    {
+        assert_eq!(v1.len(), v2.len());
+        for item in v1 {
+            assert!(v2.contains(&item));
+        }
+    }
+
+    // . . . . .
+    // . # . # .
+    // . . # . .
+    // . # . . .
+    // . # # # .
+    fn new_grid() -> Grid<Cell> {
+        let input = ".....\n.#.#.\n..#..\n.#...\n.###.\n";
+        Grid::<Cell>::from(input)
+    }
+
     #[test]
     fn grid_load_and_display() {
         let input = "..#.\n..#.\n....\n...#\n";
         let grid = Grid::<Cell>::from(input);
         assert_eq!(input.trim(), format!("{grid}"));
+    }
+
+    #[test]
+    fn steps_wrapping() {
+        let grid = new_grid();
+        let position = Position::new(0, 4);
+        assert_eq!(
+            position.steps_wrapping(2, Direction::N, &grid),
+            vec![
+                (Position::new(4, 4), Direction::N, 1),
+                (Position::new(3, 4), Direction::N, 1)
+            ]
+        );
+        assert_eq!(
+            position.steps_wrapping(6, Direction::N, &grid),
+            vec![
+                (Position::new(4, 4), Direction::N, 1),
+                (Position::new(3, 4), Direction::N, 1),
+                (Position::new(2, 4), Direction::N, 1),
+                (Position::new(1, 4), Direction::N, 1),
+                (Position::new(0, 4), Direction::N, 1),
+                (Position::new(4, 4), Direction::N, 2),
+            ]
+        );
+    }
+
+    #[test]
+    fn step_wrapping() {
+        let grid = new_grid();
+        let position = Position::new(0, 4);
+        assert_eq!(
+            (Position::new(4, 4), Some(Direction::N)),
+            position.step_wrapping(Direction::N, &grid)
+        );
+        assert_eq!(
+            (Position::new(0, 0), Some(Direction::E)),
+            position.step_wrapping(Direction::E, &grid)
+        );
+        assert_eq!(
+            (Position::new(1, 4), None),
+            position.step_wrapping(Direction::S, &grid)
+        );
+        assert_eq!(
+            (Position::new(0, 3), None),
+            position.step_wrapping(Direction::W, &grid)
+        );
+        let position = Position::new(4, 0);
+        assert_eq!(
+            (Position::new(3, 0), None),
+            position.step_wrapping(Direction::N, &grid)
+        );
+        assert_eq!(
+            (Position::new(4, 1), None),
+            position.step_wrapping(Direction::E, &grid)
+        );
+        assert_eq!(
+            (Position::new(0, 0), Some(Direction::S)),
+            position.step_wrapping(Direction::S, &grid)
+        );
+        assert_eq!(
+            (Position::new(4, 4), Some(Direction::W)),
+            position.step_wrapping(Direction::W, &grid)
+        );
+    }
+
+    #[test]
+    fn adjacent_wrapping() {
+        let grid = new_grid();
+        let position = Position::new(1, 4);
+
+        assert_vec_eq(
+            [
+                (Position::new(0, 4), None),
+                (Position::new(2, 4), None),
+                (Position::new(1, 3), None),
+                (Position::new(1, 0), Some(Direction::E)),
+            ]
+            .to_vec(),
+            position.adjacent_wrapping(&grid).to_vec(),
+        );
+
+        assert_vec_eq(
+            vec![
+                (Position::new(0, 4), None),
+                (Position::new(2, 4), None),
+                (Position::new(1, 0), Some(Direction::E)),
+            ],
+            position
+                .adjacent_if_wrapping(&grid, |c| *c == Cell::Empty)
+                .to_vec(),
+        );
+    }
+
+    #[test]
+    fn adjacent_positions() {
+        let grid = new_grid();
+        let position = Position::new(1, 4);
+
+        assert_vec_eq(
+            [
+                Position::new(0, 4),
+                Position::new(2, 4),
+                Position::new(1, 3),
+            ]
+            .into(),
+            position.adjacent(&grid),
+        );
+
+        assert_vec_eq(
+            [Position::new(0, 4), Position::new(2, 4)].into(),
+            position.adjacent_if(&grid, |c| *c == Cell::Empty),
+        );
     }
 }
