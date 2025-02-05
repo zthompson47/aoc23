@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, mem::swap};
 
 use aoc23::Grid;
 use grid_derive::Grid;
@@ -6,33 +6,23 @@ use grid_derive::Grid;
 fn main() {
     let input = include_str!("input.txt");
     let mut grid = Grid::<Square>::from(input);
-    println!("{grid}\n");
+    let start = grid.take_first(Square::Start).unwrap();
 
-    let start = grid.swap_first(Square::Start, Square::Garden).unwrap();
     let mut positions = HashSet::from([start]);
+    let mut new_positions = HashSet::new();
     for _ in 0..64 {
-        /*
-        grid.print(|p, c| {
-            if positions.contains(&p) {
-                "O".to_string()
-            } else {
-                c.to_string()
-            }
-        });
-        println!();
-        */
-        let mut new_positions = HashSet::new();
-        for position in positions.iter() {
+        for position in positions.drain() {
             new_positions.extend(position.adjacent_if(&grid, |square| *square == Square::Garden));
         }
-        positions = new_positions;
+        swap(&mut positions, &mut new_positions);
     }
 
     println!("Part 1: {}", positions.len());
 }
 
-#[derive(Debug, PartialEq, Clone, Copy, Grid)]
+#[derive(Default, PartialEq, Grid)]
 enum Square {
+    #[default]
     #[symbol = '.']
     Garden,
     #[symbol = '#']
@@ -40,3 +30,14 @@ enum Square {
     #[symbol = 'S']
     Start,
 }
+
+/*
+grid.print(|p, c| {
+    if positions.contains(&p) {
+        "O".to_string()
+    } else {
+        c.to_string()
+    }
+});
+println!();
+*/

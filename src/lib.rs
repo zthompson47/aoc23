@@ -1,18 +1,19 @@
 #[derive(Debug, Clone, PartialEq)]
-pub struct Grid<T>
-where
-    T: Clone,
-{
+pub struct Grid<T> {
     pub inner: Vec<Vec<T>>,
 }
 
-impl<T> Grid<T>
-where
-    T: Clone,
-{
-    #[allow(clippy::new_without_default)]
+impl<T> Default for Grid<T> {
+    fn default() -> Self {
+        Self {
+            inner: Default::default(),
+        }
+    }
+}
+
+impl<T> Grid<T> {
     pub fn new() -> Self {
-        Grid { inner: Vec::new() }
+        Self::default()
     }
 
     pub fn dim(&self) -> Dimensions {
@@ -103,11 +104,26 @@ where
         }
         None
     }
+
+    pub fn take_first(&mut self, target: T) -> Option<Position>
+    where
+        T: PartialEq + Default,
+    {
+        for (r_i, row) in self.inner.iter_mut().enumerate() {
+            for (c_i, square) in row.iter_mut().enumerate() {
+                if *square == target {
+                    *square = T::default();
+                    return Some(Position::new(r_i, c_i));
+                }
+            }
+        }
+        None
+    }
 }
 
 impl<T> From<&str> for Grid<T>
 where
-    T: From<char> + Clone,
+    T: From<char>,
 {
     fn from(value: &str) -> Self {
         value.lines().fold(Grid::new(), |mut grid, row| {
@@ -131,7 +147,6 @@ where
 impl<T> std::fmt::Display for Grid<T>
 where
     char: for<'a> std::convert::From<&'a T>,
-    T: Clone,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -165,10 +180,7 @@ impl Position {
         Position { r, c }
     }
 
-    pub fn adjacent<T>(&self, grid: &Grid<T>) -> Vec<Self>
-    where
-        T: Clone,
-    {
+    pub fn adjacent<T>(&self, grid: &Grid<T>) -> Vec<Self> {
         let mut result = vec![];
         for direction in Direction::all() {
             if let Some(step) = self.step(direction, grid) {
@@ -178,10 +190,7 @@ impl Position {
         result
     }
 
-    pub fn adjacent_wrapping<T>(&self, grid: &Grid<T>) -> [(Self, Option<Direction>); 4]
-    where
-        T: Clone,
-    {
+    pub fn adjacent_wrapping<T>(&self, grid: &Grid<T>) -> [(Self, Option<Direction>); 4] {
         Direction::all()
             .iter()
             .fold(vec![], |mut result, direction| {
@@ -196,10 +205,7 @@ impl Position {
         &self,
         grid: &Grid<T>,
         predicate: impl Fn(&T) -> bool,
-    ) -> Vec<(Self, Option<Direction>)>
-    where
-        T: Clone,
-    {
+    ) -> Vec<(Self, Option<Direction>)> {
         Direction::all()
             .iter()
             .fold(vec![], |mut result, direction| {
@@ -211,10 +217,7 @@ impl Position {
             })
     }
 
-    pub fn adjacent_if<T>(&self, grid: &Grid<T>, predicate: impl Fn(&T) -> bool) -> Vec<Self>
-    where
-        T: Clone,
-    {
+    pub fn adjacent_if<T>(&self, grid: &Grid<T>, predicate: impl Fn(&T) -> bool) -> Vec<Self> {
         let mut result = vec![];
 
         for direction in Direction::all() {
@@ -227,10 +230,7 @@ impl Position {
         result
     }
 
-    pub fn steps<T>(&self, count: usize, direction: Direction, grid: &Grid<T>) -> Vec<Self>
-    where
-        T: Clone,
-    {
+    pub fn steps<T>(&self, count: usize, direction: Direction, grid: &Grid<T>) -> Vec<Self> {
         let mut result = Vec::new();
         let mut start = *self;
         for _ in 0..count {
@@ -265,10 +265,7 @@ impl Position {
         }
     }
 
-    pub fn step<T>(&self, direction: Direction, grid: &Grid<T>) -> Option<Self>
-    where
-        T: Clone,
-    {
+    pub fn step<T>(&self, direction: Direction, grid: &Grid<T>) -> Option<Self> {
         match direction {
             Direction::N => {
                 if self.r > 0 {
@@ -318,10 +315,7 @@ impl Position {
         count: usize,
         direction: Direction,
         grid: &Grid<T>,
-    ) -> Vec<(Self, Direction, usize)>
-    where
-        T: Clone,
-    {
+    ) -> Vec<(Self, Direction, usize)> {
         let mut result = Vec::new();
         let mut start = *self;
         let mut wraps = 0;
@@ -340,10 +334,7 @@ impl Position {
         &self,
         direction: Direction,
         grid: &Grid<T>,
-    ) -> (Self, Option<Direction>)
-    where
-        T: Clone,
-    {
+    ) -> (Self, Option<Direction>) {
         match direction {
             Direction::N => {
                 if self.r > 0 {
