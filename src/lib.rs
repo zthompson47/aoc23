@@ -217,6 +217,20 @@ impl Position {
             })
     }
 
+    pub fn adjacent_if_wrapping2<T>(
+        &self,
+        grid: &Grid<T>,
+        result: &mut Vec<(Self, Option<Direction>)>,
+        predicate: impl Fn(&T) -> bool,
+    ) {
+        Direction::all().iter().for_each(|direction| {
+            let step = self.step_wrapping(*direction, grid);
+            if predicate(grid.cell(step.0)) {
+                result.push(self.step_wrapping(*direction, grid));
+            }
+        })
+    }
+
     pub fn adjacent_if<T>(&self, grid: &Grid<T>, predicate: impl Fn(&T) -> bool) -> Vec<Self> {
         let mut result = vec![];
 

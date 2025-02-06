@@ -5,6 +5,8 @@ edition = "2021"
 
 [profile.release]
 overflow-checks = true
+#debug = true
+#strip = false
 
 [[bin]]
 name = "day13"
