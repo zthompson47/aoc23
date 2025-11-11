@@ -119,6 +119,42 @@ impl<T> Grid<T> {
         }
         None
     }
+
+    pub fn square(&self, size: usize) -> Self
+    where
+        T: Copy,
+    {
+        let mut horizontal = self.clone();
+        for _ in 0..size - 1 {
+            horizontal.extend(Alignment::Horizontal, self.clone());
+        }
+        let mut squared = horizontal.clone();
+        for _ in 0..size - 1 {
+            squared.extend(Alignment::Vertical, horizontal.clone());
+        }
+        squared
+    }
+
+    pub fn extend(&mut self, alignment: Alignment, grid: Self)
+    where
+        T: Copy,
+    {
+        //assert_eq!(self.dim(), grid.dim());
+        match alignment {
+            Alignment::Horizontal => {
+                self.inner
+                    .iter_mut()
+                    .zip(grid.inner.iter())
+                    .for_each(|(this, other)| {
+                        this.extend(other);
+                    })
+            }
+
+            Alignment::Vertical => {
+                self.inner.extend(grid.inner);
+            }
+        }
+    }
 }
 
 impl<T> From<&str> for Grid<T>
@@ -418,10 +454,16 @@ impl Position {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Dimensions {
     pub r: usize,
     pub c: usize,
+}
+
+impl Dimensions {
+    pub fn new(r: usize, c: usize) -> Self {
+        Dimensions { r, c }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Copy, Eq, Hash)]
@@ -430,6 +472,12 @@ pub enum Direction {
     E,
     S,
     W,
+}
+
+impl std::fmt::Display for Dimensions {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({:2}, {:2})", self.r, self.c)
+    }
 }
 
 impl From<&str> for Direction {
@@ -665,5 +713,15 @@ mod tests {
             [Position::new(0, 4), Position::new(2, 4)].into(),
             position.adjacent_if(&grid, |c| *c == Cell::Empty),
         );
+    }
+
+    #[test]
+    fn extend_grid() {
+        let mut grid = new_grid();
+        let dim = grid.dim();
+        grid.extend(Alignment::Horizontal, grid.clone());
+        assert_eq!(grid.dim().c, dim.c * 2);
+        grid.extend(Alignment::Vertical, grid.clone());
+        assert_eq!(grid.dim().r, dim.r * 2);
     }
 }
