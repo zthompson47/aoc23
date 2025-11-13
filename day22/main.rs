@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 fn main() {
     let input = include_str!("input.txt");
-    println!("{input}");
+    //println!("{input}");
 
     // Import brick data and sort by height of brick bottoms.
     let mut grid: Vec<Brick> = input.lines().map(Into::into).collect();
@@ -13,14 +13,13 @@ fn main() {
 }
 
 fn part1(mut grid: Vec<Brick>) -> usize {
-    println!("Before:");
-    print(&grid);
+    //println!("Before:");
+    //print(&grid);
 
     // Keep track of which level the tops of bricks land in.
     type ZLevel = usize;
     type BrickId = usize;
     let mut brick_tips: HashMap<ZLevel, Vec<BrickId>> = HashMap::new();
-    //let mut tips: Vec<Vec<Brick>> = vec![Default::default(); grid.len()];
 
     // Drop bricks to ground, starting with brick closest to ground.
     for brick_id in 0..grid.len() {
@@ -30,14 +29,14 @@ fn part1(mut grid: Vec<Brick>) -> usize {
             let mut intersections: Vec<BrickId> = Vec::new();
             if let Some(other_brick_ids) = brick_tips.get(&j) {
                 for other_brick_id in other_brick_ids {
-                    println!("check intersect: brick_id: {brick_id}, other: {other_brick_id}");
+                    //println!("check intersect: brick_id: {brick_id}, other: {other_brick_id}");
                     if grid[brick_id].intersects(&grid[*other_brick_id]) {
                         intersections.push(*other_brick_id);
                     }
                 }
             }
             if !intersections.is_empty() {
-                println!("-{brick_id}->> {:?}", intersections);
+                //println!("-{brick_id}->> {:?}", intersections);
                 if intersections.len() == 1 {
                     grid[intersections[0]].is_support = true;
                 }
@@ -55,11 +54,11 @@ fn part1(mut grid: Vec<Brick>) -> usize {
             .or_insert(vec![brick_id]);
     }
 
-    println!("After:");
-    print(&grid);
+    //println!("After:");
+    //print(&grid);
 
-    println!("Tips:");
-    println!("{brick_tips:?}\n");
+    //println!("Tips:");
+    //println!("{brick_tips:?}\n");
 
     grid.iter().filter(|x| !x.is_support).count()
 }
@@ -144,11 +143,11 @@ impl Brick {
             }
         }
 
-        println!("Points: {points:?}");
-        println!("OTHER Points: {other_points:?}");
+        //println!("Points: {points:?}");
+        //println!("OTHER Points: {other_points:?}");
 
         let intersection: HashSet<&(usize, usize)> = points.intersection(&other_points).collect();
-        println!("Intersections: {intersection:?}\n");
+        //println!("Intersections: {intersection:?}\n");
         !intersection.is_empty()
     }
 }
@@ -176,6 +175,7 @@ impl std::fmt::Display for Brick {
     }
 }
 
+#[allow(unused)]
 fn print(grid: &[Brick]) {
     grid.iter().for_each(|x| println!("{x}"));
     println!();
