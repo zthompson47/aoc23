@@ -10,9 +10,10 @@ fn main() {
     //print(&grid);
 
     println!("Part 1: {}", part1(grid.clone()));
+    println!("Part 2: {}", part2(grid.clone()));
 }
 
-fn part1(mut grid: Vec<Brick>) -> usize {
+fn play(mut grid: Vec<Brick>) -> Vec<Brick> {
     //println!("Before:");
     //print(&grid);
 
@@ -46,6 +47,9 @@ fn part1(mut grid: Vec<Brick>) -> usize {
             j -= 1;
         }
         let fall = grid[brick_id].lowest_level() - 1 - j;
+        if fall > 0 {
+            grid[brick_id].fell = true;
+        }
         grid[brick_id].lower_end.z -= fall;
         grid[brick_id].upper_end.z -= fall;
         brick_tips
@@ -59,8 +63,26 @@ fn part1(mut grid: Vec<Brick>) -> usize {
 
     //println!("Tips:");
     //println!("{brick_tips:?}\n");
+    grid
+}
 
-    grid.iter().filter(|x| !x.is_support).count()
+fn part1(grid: Vec<Brick>) -> usize {
+    play(grid).iter().filter(|x| !x.is_support).count()
+}
+
+fn part2(mut grid: Vec<Brick>) -> usize {
+    grid = play(grid);
+    grid.iter_mut().for_each(|x| x.fell = false);
+    let mut fall_count = 0;
+
+    for i in 0..grid.len() {
+        let mut cloned = grid.clone();
+        cloned.remove(i);
+        cloned = play(cloned);
+        fall_count += cloned.iter().filter(|x| x.fell).count();
+    }
+
+    fall_count
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -96,6 +118,7 @@ struct Brick {
     lower_end: Position,
     upper_end: Position,
     is_support: bool,
+    fell: bool,
 }
 
 impl Brick {
@@ -164,14 +187,16 @@ impl From<&str> for Brick {
             lower_end,
             upper_end,
             is_support: false,
+            fell: false,
         }
     }
 }
 
 impl std::fmt::Display for Brick {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let support = if self.is_support { " S" } else { "" };
-        write!(f, "{}~{}{support}", self.lower_end, self.upper_end)
+        let support = if self.is_support { "S" } else { " " };
+        let fell = if self.fell { "F" } else { " " };
+        write!(f, "{}~{}{support}{fell}", self.lower_end, self.upper_end)
     }
 }
 
