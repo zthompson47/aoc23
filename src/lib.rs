@@ -280,6 +280,23 @@ impl Position {
         result
     }
 
+    pub fn adjacent_if_direction<T>(
+        &self,
+        grid: &Grid<T>,
+        predicate: impl Fn(&T, Direction) -> bool,
+    ) -> Vec<(Self, Direction)> {
+        let mut result = vec![];
+
+        for direction in Direction::all() {
+            if let Some(step) = self.step(direction, grid) {
+                if predicate(grid.cell(step), direction) {
+                    result.push((step, direction));
+                }
+            }
+        }
+        result
+    }
+
     pub fn steps<T>(&self, count: usize, direction: Direction, grid: &Grid<T>) -> Vec<Self> {
         let mut result = Vec::new();
         let mut start = *self;
