@@ -52,6 +52,10 @@ path = "day22/main.rs"
 name = "day23"
 path = "day23/main.rs"
 
+[[bin]]
+name = "day24"
+path = "day24/main.rs"
+
 [dependencies]
 colored = "2.2.0"
 env_logger = "0.11.6"
@@ -59,3 +63,4 @@ log = "0.4.25"
 num = "0.4.3"
 rayon = "1.10.0"
 grid_derive = { path = "grid_derive" }
+rug = "1.28.0"
